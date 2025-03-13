@@ -1,0 +1,9 @@
+.env
+# server
+server/info
+server/.env
+server/docker.env
+server/public
+# client
+client/node_modules
+client/dist

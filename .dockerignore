@@ -1,0 +1,6 @@
+# client
+client/node_modules
+client/dist
+# server
+server/public
+server/info

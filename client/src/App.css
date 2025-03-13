@@ -1,0 +1,89 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Comic Sans MS", "Comic Sans", cursive;
+
+}
+
+html, body {
+  height: 97%;
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  background-attachment: fixed; /* Keeps it in place when scrolling */
+  background-size: cover; /* Ensures it fills the whole screen */
+}
+
+.cg {
+  color: #33FF33;
+}
+
+.bg-w {
+  color: #fff;
+}
+
+.g-btn {
+  margin: 8px;
+  padding: 4px 8px;
+  color: #33FF33;
+  background-color: #000;
+  border: 1px solid #33FF33;
+  cursor: pointer;
+}
+
+
+.g-inp {
+  background-color: #000;
+  color: #33FF33;
+  border: 1px solid #33FF33;
+  outline: none;
+  padding: 4px 8px;
+  margin: 8px;
+}
+
+.border-g {
+  border: 1px solid #33FF33;
+}
+
+.g-shadow {
+  box-shadow: 1px 1px 1px #33ff33;
+}
+
+
+.scrollable-div {
+  overflow-y: auto;
+}
+.scrollable-div::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollable-div::-webkit-scrollbar-track {
+  background: #000;
+  border-radius: 4px;
+}
+.scrollable-div::-webkit-scrollbar-thumb {
+  background: #33ff33;
+  border-radius: 4px;
+}
+.scrollable-div::-webkit-scrollbar-thumb:hover {
+  background: rgb(21, 85, 27);
+}
+
+/* Entire page scrollbar */
+::-webkit-scrollbar {
+  width: 8px; /* Vertical scrollbar thickness */
+}
+
+::-webkit-scrollbar-track {
+  background: #000; /* Track color */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #33ff33; /* Thumb color */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(21, 85, 27)
+}
