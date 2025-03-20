@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import {  Outlet, useNavigate, Link } from "react-router";
+import { Link } from "react-router";
 import httpClient from "../../utils/http";
 import ProfileCard from "./card";
 
@@ -27,7 +27,7 @@ export default () => {
       >
         Add Person
       </Link>
-      <div style={{ display: "flex", textAlign: "center", textDecoration: "none", flexWrap: "wrap" }} >
+      <div style={{ display: "flex", textAlign: "center", textDecoration: "none", flexWrap: "wrap", paddingBottom: 20 }} >
         {persons.map(p => <ProfileCard key={p.id} name={p.name} id={p.id} avatar={p.avatar ? `${Domain}/${p.avatar}` : "/logo.webp"} />)}
       </div>
     </div>

@@ -26,6 +26,7 @@ const UploadFileModal = ({ isOpen, closeModal, person }) => {
     toastMaker.error("something went wrong")
   };
 
+
   return isOpen
     ?
     <>
@@ -100,10 +101,10 @@ const UpdateNameModal = ({ isOpen, closeModal, person }) => {
       'new_name': nameInput
     });
 
-      if (status === 200) {
-        toastMaker.success("name updated")
-        return navigate("/person")
-      }
+    if (status === 200) {
+      toastMaker.success("name updated")
+      return navigate("/person")
+    }
 
   }
 
@@ -120,7 +121,7 @@ const UpdateNameModal = ({ isOpen, closeModal, person }) => {
         padding: "8px 16px",
         zIndex: 12
       }} >
-        <input
+        <span className='cg' >name</span> <input
           type='text'
           value={nameInput}
           onChange={e => setNameInput(e.target.value)}
@@ -144,6 +145,67 @@ const UpdateNameModal = ({ isOpen, closeModal, person }) => {
     :
     null
 }
+
+const UpdatePhoneNumberModal = ({ isOpen, closeModal, person }) => {
+  const navigate = useNavigate();
+  const [phoneInput, setPhoneInput] = useState("")
+
+  const updatePhoneNumber = async () => {
+
+    if (!phoneInput) return toastMaker.error("Please fill the phone field")
+    const isValidPhone = /^(\+98|0|0098)?9\d{9}$/.test(phoneInput)
+    if (!isValidPhone) return toastMaker.error("please enter a valid phone number")
+    
+      const { status } = await httpClient.patch(`/person/phone`, {
+        'id': person.id,
+        'phone_number': phoneInput
+      });
+    
+      if (status === 200) {
+        toastMaker.success("phone updated")
+        return navigate(0)
+      }
+  }
+
+  return isOpen
+  ?
+  <>
+    <div style={{
+      position: "fixed",
+      top: "calc(50vh - 200px)",
+      width: 800,
+      left: "calc(50vw - 400px)",
+      background: "#000",
+      border: "1px solid #33ff33",
+      padding: "8px 16px",
+      zIndex: 12
+      }}
+      >
+        <span className='cg' > phone number </span><input
+          type='text'
+          value={phoneInput}
+          onChange={e => setPhoneInput(e.target.value)}
+          className="g-inp"
+        />
+        <button className="g-btn" onClick={() => updatePhoneNumber()} > submit </button>
+      </div>
+      <div style={{
+        width: "100vw",
+        height: "100vh",
+        background: "#000",
+        opacity: .9,
+        top: 0,
+        left: 0,
+        position: "fixed",
+        zIndex: 11
+      }}  
+      onClick={() => closeModal()}>
+      </div>
+    </>
+    :
+    null
+}
+
 export default () => {
   const navigate = useNavigate();
 
@@ -151,6 +213,7 @@ export default () => {
   const [topMentions, setTopMentions] = useState([])
   const [isModalOpen, setModalOpen] = useState(false)
   const [isUpdateNameModalOpen, setUpdateNameModalOpen] = useState(false)
+  const [isUpdatePhoneModalOpen, setUpdatePhoneModalOpen] = useState(false)
   const [notes, setNotes] = useState([])
   const [person, setPerson] = useState(null)
 
@@ -201,6 +264,7 @@ export default () => {
 
   if (person == null ) return <h1> loading </h1>
 
+  console.log("person : ", person)
   return (
     <div style={{ position: 'relative' }} >
             
@@ -216,8 +280,14 @@ export default () => {
         person={person}
       />
 
-      <div style={{ display: "flex", borderBottom: "1px solid #33ff33", paddingBottom: 8 }} >
-        <div style={{ width: 140, display: "flex", flexDirection: "column", alignItems: "center" }} >
+      <UpdatePhoneNumberModal
+        isOpen={isUpdatePhoneModalOpen}
+        closeModal={() => setUpdatePhoneModalOpen(false)}
+        person={person}
+      />
+
+      <div style={{ display: "flex",  }} >
+        <div style={{ display: "flex", alignItems: "start" }} >
           <img
             src={person.avatar ? `${Domain}/${person.avatar}` : "/logo.webp"}
             width={80}
@@ -233,27 +303,36 @@ export default () => {
               }
             }}  
           />
-          <button className="g-btn" onClick={e => setUpdateNameModalOpen(true)}  > update name </button>
+          <div style={{ padding: 8}} >
+            <div>
+              <button className="g-btn" onClick={e => setUpdateNameModalOpen(true)}  > update name </button>
+              <button className="g-btn" onClick={e => setUpdatePhoneModalOpen(true)}  > update phone </button>
+            </div>
+            <div className='cg' style={{paddingLeft: 8}} > Phone Number: {person.phone_number || "Not Specified"} </div>
+          </div>
+
+          
+
         </div>
-        <div style={{padding: 12}} >
-          {topTags.map((tag, index, arr) => {
-            return (
-              <span key={index} >
-                <span style={{color: colors[index % colors.length]}} > {tag.name} ({tag.usage_count}) </span>
-                <span className="bg-w"> {index < arr.length - 1 ? "|" : ""} </span>
-              </span>
-            )
-          })}
-          <br />
-          {topMentions.map((mention, index, arr) => {
-            return (
-              <span key={index} >
-                <span style={{color: colors[(index + topTags.length) % colors.length]}} > @{mention.name} ({mention.usage_count}) </span>
-                <span className="bg-w"> {index < arr.length - 1 ? "|" : ""} </span>
-              </span>
-            )
-          })}
-        </div>
+      </div>
+      <div style={{ padding: 12, borderBottom: "1px solid #33ff33", paddingBottom: 8 }} >
+        {topTags.map((tag, index, arr) => {
+          return (
+            <span key={index} >
+              <span style={{color: colors[index % colors.length]}} > {tag.name} ({tag.usage_count}) </span>
+              <span className="bg-w"> {index < arr.length - 1 ? "|" : ""} </span>
+            </span>
+          )
+        })}
+        <br />
+        {topMentions.map((mention, index, arr) => {
+          return (
+            <span key={index} >
+              <span style={{color: colors[(index + topTags.length) % colors.length]}} > @{mention.name} ({mention.usage_count}) </span>
+              <span className="bg-w"> {index < arr.length - 1 ? "|" : ""} </span>
+            </span>
+          )
+        })}
       </div>
 
 

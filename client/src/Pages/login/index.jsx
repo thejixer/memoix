@@ -42,6 +42,8 @@ export default () => {
 
   }
 
+  // #todo should redirect to dashboard if it is already logged ins 
+
   return (
     <div>
       <div

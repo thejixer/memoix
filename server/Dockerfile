@@ -30,6 +30,9 @@ RUN apk add --no-cache ca-certificates curl
 # Copy the compiled binary from the builder
 COPY --from=builder /memoixserver/server/server /memoixserver/server
 
+# Ensure the public directory exists
+RUN mkdir -p /memoixserver/public
+
 # Copy backend-specific environment file from the builder stage
 COPY --from=builder /memoixserver/.env .env
 RUN ls -al .env

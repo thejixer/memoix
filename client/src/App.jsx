@@ -6,7 +6,7 @@ import Protector from "./Pages/protector";
 import Persons from "./Pages/Persons";
 import AddPerson from "./Pages/AddPerson";
 import SinglePerson from "./Pages/SinglePerson";
-import NewNote from "./Pages/NewNote";
+import Memories from "./Pages/Memories";
 
 function App() {
 
@@ -20,7 +20,7 @@ function App() {
         <Route path="/person" element={<Persons />} />
         <Route path="/person/:id" element={<SinglePerson />} />
         <Route path="/person/add" element={<AddPerson />} />
-        <Route path="/post" element={<NewNote />} />
+        <Route path="/memories" element={<Memories />} />
       </Route>
 
       {/* <Route path="/dashboard" element={<Dashboard />} /> */}

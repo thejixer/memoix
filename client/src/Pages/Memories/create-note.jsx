@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import httpClient from "../../utils/http"
 import { useNavigate } from "react-router";
@@ -16,7 +17,7 @@ export default () => {
 
     if (resp.status == 200) {
       toastMaker.success("post created")
-      return navigate("/dashboard")
+      return navigate(0)
     }
 
     console.log(resp.data)

@@ -11,13 +11,15 @@ const ConfirmDeleteModal = ({ isOpen, CloseModal, Note }) => {
   const [textInput, setTextInput] = useState("")
 
   const onDelete = async () => {
-    const resp = await httpClient.delete(`/note/${Note.ID}`, {})
+    const resp = await httpClient.delete(`/note/${Note.id}`, {})
     if (resp.status == 200) {
       toastMaker.success("post deleted")
       return navigate(0)
     }
     toastMaker.error("something is wrong, please contact our engineers to solve the issue")
   }
+
+  if (Note?.type !== "note") return null
 
   return (
     <>
@@ -84,6 +86,7 @@ export default ({ notes }) => {
     setCurrentNote(null)
   }
 
+
   return (
 
     <div style={{ marginTop: 4 }} >
@@ -106,11 +109,11 @@ export default ({ notes }) => {
             }}
           >
             <div style={{ display: "flex", flexDirection: "row-reverse", borderBottom: "1px solid #33ff33", height: 50 }} >
-              <button className="g-btn" onClick={() => setCDMOpen(true)} > delete </button>
+              <button  className="g-btn" style={{cursor: currentNote?.type === 'note' ? "pointer" : "no-drop"}} onClick={() => setCDMOpen(true)} > delete </button>
               <button className="g-btn" onClick={() => closeModal()} > close </button>
             </div>
             <div style={{ padding: "8px 16px", overflowY: "auto", height: 340 }} className='scrollable-div' >
-              {currentNote.Content}       <span style={{ fontSize: 12, marginLeft: 16 }} >{formatDate(currentNote.Date)}</span>
+              {currentNote.content}       <span style={{ fontSize: 12, marginLeft: 16 }} >{formatDate(currentNote.date)}</span>
             </div>
 
           </div>
@@ -146,10 +149,33 @@ export default ({ notes }) => {
               <div
                 key={index}
                 className='g-shadow'
-                style={{ border: "1px solid #33FF33", margin: 6, padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+                style={{
+                  border: "1px solid #33FF33",
+                  margin: 6, padding: "4px 8px",
+                  borderRadius: 4, cursor: "pointer",
+                  position: "relative",
+                  overflow: "hidden"
+                }}
                 onClick={() => openModal(note)}
               >
-                {note.Content}  <span style={{ fontSize: 12, marginLeft: 8, display: "inline-block" }} >{formatDate(note.Date)}</span> 
+                {
+                  note.type == "expense"
+                    ?
+                    <>
+                      <div
+                        className='shiny-gradient'
+                        style={{
+                        width: 32,
+                        height: 8,
+                          transform: "rotate(-45deg) translateX(-12px) translateY(-10px)",
+                        position: "absolute"
+                      }} ></div>
+                      <span style={{paddingLeft: 8}} > {note.amount} Tomans --- </span>
+                    </>
+                    :
+                    null
+                }
+                {note.content}  <span style={{ fontSize: 12, marginLeft: 8, display: "inline-block" }} >{formatDate(note.date)}</span> 
               </div>
             )
           })

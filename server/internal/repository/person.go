@@ -23,6 +23,8 @@ func (s *PostgresStore) createPersonTable() error {
 			user_id integer,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 			avatar TEXT,
+			phone_number VARCHAR(20) default '',
+			birthday DATE,
 			created_at TIMESTAMPTZ,
 			UNIQUE (name, user_id)
 		);
@@ -92,18 +94,29 @@ func (r *PersonRepo) Create(ctx context.Context, name string, userID uint64) (*m
 
 func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error) {
 	query := `
-		SELECT 
-			p.id, 
-			p.name,
-			p.user_id,
-			p.avatar,
-			p.created_at,
-			COUNT(m.id) AS mention_count
-		FROM persons p
-		LEFT JOIN mentions m ON p.id = m.person_id
-		WHERE p.name ILIKE $1 AND p.user_id = $2
-		GROUP BY p.id, p.name
-		ORDER BY mention_count DESC;
+		SELECT
+				p.id,
+				p.name,
+				p.user_id,
+				p.avatar,
+				p.phone_number,
+				p.birthday,
+				p.created_at,
+				COUNT(m.id) AS mention_count,
+				COUNT(e.expense_id) AS expense_count,
+				COUNT(m.id) + COUNT(e.expense_id) AS total_count
+		FROM
+				persons p
+		LEFT JOIN
+				notes_persons m ON p.id = m.person_id
+		LEFT JOIN
+				expense_persons e ON p.id = e.person_id
+		WHERE
+				p.name ILIKE $1 AND p.user_id = $2
+		GROUP BY
+				p.id, p.name
+		ORDER BY
+				total_count DESC;
 	`
 
 	str := "%" + strings.ToLower(text) + "%"
@@ -117,12 +130,19 @@ func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*
 	for rows.Next() {
 		u := new(models.PersonEntity)
 		var count int64
+		var mentionCount int64
+		var expenseCount int64
+
 		if err := rows.Scan(
 			&u.ID,
 			&u.Name,
 			&u.UserID,
 			&u.Avatar,
+			&u.PhoneNumber,
+			&u.Birthday,
 			&u.CreatedAt,
+			&mentionCount,
+			&expenseCount,
 			&count,
 		); err != nil {
 			return nil, fmt.Errorf("error in personRepo.Query: %w", err)
@@ -134,7 +154,7 @@ func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*
 }
 
 func (r *PersonRepo) FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error) {
-	query := `SELECT * FROM persons WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, name, user_id, avatar, phone_number, birthday, created_at FROM persons WHERE id = $1 AND user_id = $2`
 	rows, err := r.db.QueryContext(ctx, query, id, userID)
 	if err != nil {
 		return nil, err
@@ -205,6 +225,19 @@ func (r *PersonRepo) UpdateName(ctx context.Context, oldName, newName string, us
 		return false, fmt.Errorf("failed to update notes content: %w", err)
 	}
 
+	// Step 3: Update all expenses that mention @oldName to @newName
+	updateExpensesQuery := `
+		UPDATE expenses 
+		SET content = REPLACE(content, '@' || $1, '@' || $2) 
+		WHERE content LIKE '%' || '@' || $1 || '%'
+		AND user_id = $3
+	`
+	_, err = tx.ExecContext(ctx, updateExpensesQuery, oldName, newName, userID)
+	if err != nil {
+		tx.Rollback()
+		return false, fmt.Errorf("failed to update expensews content: %w", err)
+	}
+
 	// Commit transaction if everything succeeded
 	err = tx.Commit()
 	if err != nil {
@@ -214,6 +247,26 @@ func (r *PersonRepo) UpdateName(ctx context.Context, oldName, newName string, us
 	return true, nil
 }
 
+func (r *PersonRepo) UpdatePhoneNumber(ctx context.Context, id, userID uint64, phoneNumber string) (bool, error) {
+	query := `
+		UPDATE persons
+		SET phone_number = $1
+		WHERE id = $2 AND user_id = $3
+	`
+
+	result, err := r.db.ExecContext(ctx, query, phoneNumber, id, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to update phone number: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return rowsAffected > 0, nil
+}
+
 func ScanIntoPersons(rows *sql.Rows) (*models.PersonEntity, error) {
 	u := new(models.PersonEntity)
 	if err := rows.Scan(
@@ -221,6 +274,8 @@ func ScanIntoPersons(rows *sql.Rows) (*models.PersonEntity, error) {
 		&u.Name,
 		&u.UserID,
 		&u.Avatar,
+		&u.PhoneNumber,
+		&u.Birthday,
 		&u.CreatedAt,
 	); err != nil {
 		return nil, err

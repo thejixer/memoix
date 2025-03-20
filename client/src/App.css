@@ -32,7 +32,6 @@ html, body {
   cursor: pointer;
 }
 
-
 .g-inp {
   background-color: #000;
   color: #33FF33;
@@ -40,6 +39,10 @@ html, body {
   outline: none;
   padding: 4px 8px;
   margin: 8px;
+}
+
+.g-inp::placeholder {
+  color: #119c11;
 }
 
 .border-g {
@@ -50,6 +53,19 @@ html, body {
   box-shadow: 1px 1px 1px #33ff33;
 }
 
+.tc {
+  text-align: center;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.shiny-gradient {
+  background: linear-gradient(209deg, rgba(238, 255, 0, 0.78), rgba(55, 255, 0, 0.64), rgba(55, 255, 0, 1));
+  -webkit-background: linear-gradient(209deg, rgba(238, 255, 0, 0.78), rgba(55, 255, 0, 0.64), rgba(55, 255, 0, 1));
+  -moz-background: linear-gradient(209deg, rgba(238, 255, 0, 0.78), rgba(55, 255, 0, 0.64), rgba(55, 255, 0, 1));
+}
 
 .scrollable-div {
   overflow-y: auto;
@@ -87,3 +103,4 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(21, 85, 27)
 }
+

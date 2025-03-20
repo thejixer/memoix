@@ -1,7 +1,6 @@
 import { useState } from "react"
 import httpClient from "../../utils/http"
 import { useNavigate } from "react-router";
-import toast from "react-hot-toast";
 import toastMaker from "../../utils/custom-toast";
 
 export default () => {

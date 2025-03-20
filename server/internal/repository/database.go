@@ -10,10 +10,11 @@ import (
 )
 
 type PostgresStore struct {
-	db         *sql.DB
-	authRepo   service.IAuthRepository
-	personRepo service.IPersonRepository
-	noteRepo   service.INoteRepository
+	db          *sql.DB
+	authRepo    service.IAuthRepository
+	personRepo  service.IPersonRepository
+	noteRepo    service.INoteRepository
+	expenseRepo service.IExpenseRepository
 }
 
 func NewPostgresStore() (*PostgresStore, error) {
@@ -37,12 +38,14 @@ func NewPostgresStore() (*PostgresStore, error) {
 	authRepo := NewAuthRepo(db)
 	personRepo := NewPersonRepo(db)
 	noteRepo := NewNoteRepo(db)
+	expenseRepo := NewExpenseRepo(db)
 
 	return &PostgresStore{
-		db:         db,
-		authRepo:   authRepo,
-		personRepo: personRepo,
-		noteRepo:   noteRepo,
+		db:          db,
+		authRepo:    authRepo,
+		personRepo:  personRepo,
+		noteRepo:    noteRepo,
+		expenseRepo: expenseRepo,
 	}, nil
 }
 
@@ -58,6 +61,10 @@ func (s *PostgresStore) Init() error {
 
 	if err := s.createNoteTables(); err != nil {
 		return fmt.Errorf("error in dbInit.createNoteTables: %w", err)
+	}
+
+	if err := s.createExpenseTables(); err != nil {
+		return fmt.Errorf("error in dbInit.createExpenseTables: %w", err)
 	}
 
 	return nil

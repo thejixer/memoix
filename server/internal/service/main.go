@@ -12,12 +12,14 @@ type IdbStore interface {
 	AuthRepo() IAuthRepository
 	PersonRepo() IPersonRepository
 	NoteRepo() INoteRepository
+	ExpenseRepo() IExpenseRepository
 }
 
 type Service struct {
-	authService   *AuthService
-	personService *PersonService
-	noteService   *NoteService
+	authService    *AuthService
+	personService  *PersonService
+	noteService    *NoteService
+	expenseService *ExpenseService
 }
 
 func NewService(dbStore IdbStore, redisStore IRedisStore) *Service {
@@ -25,11 +27,13 @@ func NewService(dbStore IdbStore, redisStore IRedisStore) *Service {
 	authService := NewAuthService(dbStore, redisStore)
 	personService := NewPersonService(dbStore, redisStore)
 	noteService := NewNoteService(dbStore, redisStore)
+	expenseService := NewExpenseService(dbStore)
 
 	return &Service{
-		authService:   authService,
-		personService: personService,
-		noteService:   noteService,
+		authService:    authService,
+		personService:  personService,
+		noteService:    noteService,
+		expenseService: expenseService,
 	}
 }
 
@@ -41,4 +45,8 @@ func (s *Service) PersonService() handler.IPersonService {
 }
 func (s *Service) NoteService() handler.INoteService {
 	return s.noteService
+}
+
+func (s *Service) ExpenseService() handler.IExpenseService {
+	return s.expenseService
 }

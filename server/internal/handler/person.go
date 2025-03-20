@@ -18,6 +18,7 @@ type IPersonService interface {
 	FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error)
 	UploadAvatar(ctx context.Context, file *multipart.FileHeader, person *models.PersonEntity, userID uint64) (bool, error)
 	UpdateName(ctx context.Context, oldName, newName string, userID uint64) (bool, error)
+	UpdatePhoneNumber(ctx context.Context, id, userID uint64, phoneNumber string) (bool, error)
 }
 
 func (h *Handler) HandleCreatePerson(c echo.Context) error {
@@ -142,4 +143,28 @@ func (h *Handler) HandleUpdateName(c echo.Context) error {
 	}
 	return WriteReponse(c, http.StatusOK, "ok")
 
+}
+
+func (h *Handler) HandleUpdatePersonPhoneNumber(c echo.Context) error {
+	body := models.UpdatePhoneNumberDto{}
+
+	if err := c.Bind(&body); err != nil {
+		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
+	}
+
+	if err := c.Validate(body); err != nil {
+		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
+	}
+
+	requester, err := GetRequester(c, h)
+	if err != nil {
+		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+	}
+
+	ctx := c.Request().Context()
+	ok, err := h.Service.PersonService().UpdatePhoneNumber(ctx, body.ID, requester.ID, body.PhoneNumber)
+	if err != nil || !ok {
+		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
+	}
+	return WriteReponse(c, http.StatusOK, "ok")
 }

@@ -24,4 +24,5 @@ func (r *Router) ApplyRoutes(e *echo.Echo) {
 	r.ApplyAuthRoutes(e)
 	r.ApplyPersonRoutes(e)
 	r.ApplyNoeRoutes(e)
+	r.ApplyExpenseRoutes(e)
 }

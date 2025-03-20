@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
+	"memoix-server/internal/utils"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ type IPersonRepository interface {
 	FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error)
 	SetAvatar(ctx context.Context, avatar string, personID, userID uint64) (bool, error)
 	UpdateName(ctx context.Context, oldName, newName string, userID uint64) (bool, error)
+	UpdatePhoneNumber(ctx context.Context, id, userID uint64, phoneNumber string) (bool, error)
 }
 
 type PersonService struct {
@@ -45,6 +47,7 @@ func (s *PersonService) CreatePerson(ctx context.Context, name string, userID ui
 func (s *PersonService) Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error) {
 	persons, err := s.dbStore.PersonRepo().Query(ctx, text, userID)
 	if err != nil {
+		fmt.Println("error here ", err)
 		return nil, fmt.Errorf("error in PersonService.Query: %w", err)
 	}
 	return persons, nil
@@ -116,6 +119,24 @@ func (s *PersonService) UpdateName(ctx context.Context, oldName, newName string,
 	}
 	if !ok {
 		return false, fmt.Errorf("error in PersonService.UpdateName: %w", apperrors.ErrUnexpected)
+	}
+
+	return true, nil
+}
+
+func (s *PersonService) UpdatePhoneNumber(ctx context.Context, id, userID uint64, phoneNumber string) (bool, error) {
+
+	normalizedPhone, err := utils.ValidatePhoneNumber(phoneNumber)
+	if err != nil {
+		return false, fmt.Errorf("error in PersonService.UpdatePhoneNumber: %w", err)
+	}
+
+	ok, err := s.dbStore.PersonRepo().UpdatePhoneNumber(ctx, id, userID, normalizedPhone)
+	if err != nil {
+		return false, fmt.Errorf("error in PersonService.UpdatePhoneNumber: %w", err)
+	}
+	if !ok {
+		return false, fmt.Errorf("error in PersonService.UpdatePhoneNumber: %w", apperrors.ErrUnexpected)
 	}
 
 	return true, nil

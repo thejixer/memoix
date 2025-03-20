@@ -24,6 +24,8 @@ func (r *Router) ApplyMiddlewares(e *echo.Echo) {
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://localhost:3000",
 			"http://localhost:80",
 			"http://localhost",
 			"http://memoix.com",

@@ -4,10 +4,12 @@ import "memoix-server/internal/models"
 
 func MapPersonEntityToDto(p *models.PersonEntity) *models.PersonDto {
 	return &models.PersonDto{
-		ID:        p.ID,
-		Name:      p.Name,
-		Avatar:    p.Avatar,
-		CreatedAt: p.CreatedAt,
+		ID:          p.ID,
+		Name:        p.Name,
+		Avatar:      p.Avatar,
+		PhoneNumber: p.PhoneNumber,
+		Birthday:    p.Birthday,
+		CreatedAt:   p.CreatedAt,
 	}
 }
 

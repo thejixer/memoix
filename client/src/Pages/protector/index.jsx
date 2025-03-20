@@ -28,14 +28,14 @@ const Protector = () => {
 
   return loaded ?
     <div>
-      <nav style={{  borderBottom: "1px solid #33FF33", display: "flex", justifyContent: "space-between"}} >
+      <nav style={{  borderBottom: "1px solid #33FF33", display: "flex", justifyContent: "space-between", padding: "4px 8px"}} >
 
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center"}} >
           <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/dashboard" > Dashboard </NavLink>
           <span className="cg" style={{margin: "0 4px"}} > | </span>
-          <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/person" > Persons </NavLink>
+          <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/memories" > Memories </NavLink>
           <span className="cg" style={{margin: "0 4px"}} > | </span>
-          <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/post" > Post </NavLink>
+          <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/person" > Persons </NavLink>
         </div>
 
         <button

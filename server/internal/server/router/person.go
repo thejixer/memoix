@@ -9,4 +9,5 @@ func (r *Router) ApplyPersonRoutes(e *echo.Echo) {
 	g.GET("/:id", r.h.HandleGetPerson)
 	g.POST("/:id/avatar", r.h.UploadAvatar)
 	g.PATCH("/", r.h.HandleUpdateName)
+	g.PATCH("/phone", r.h.HandleUpdatePersonPhoneNumber)
 }

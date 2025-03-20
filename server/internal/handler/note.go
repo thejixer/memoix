@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"memoix-server/internal/adapters"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
 	"net/http"
@@ -17,7 +18,7 @@ type INoteService interface {
 	Create(ctx context.Context, note string, date time.Time, userID uint64) (*models.NoteEntity, error)
 	GetTopTags(ctx context.Context, query string, userID uint64) ([]*models.TagUsageDto, error)
 	GetTopMentions(ctx context.Context, query string, userID uint64) ([]*models.MentionUsageDto, error)
-	GetNotes(ctx context.Context, query string, userID uint64) ([]*models.NoteEntity, error)
+	GetNotes(ctx context.Context, query string, userID uint64) ([]*models.EntryEntity, error)
 	DeleteNote(ctx context.Context, noteID, userID uint64) error
 }
 
@@ -85,7 +86,7 @@ func (h *Handler) HandleGetNotes(c echo.Context) error {
 		fmt.Println(err)
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}
-	return c.JSON(http.StatusOK, notes)
+	return c.JSON(http.StatusOK, adapters.MapEntryEntitiesToDto(notes))
 }
 
 func (h *Handler) HandleDeleteNote(c echo.Context) error {

@@ -63,7 +63,7 @@ services:
       retries: 3
       start_period: 5s
     volumes:
-      - backend_files:/app/files # adding volume for files
+      - backend_files:/memoixserver/public # adding volume for files
   client:
     build:
       context: ./client # Path to your client's directory

@@ -14,6 +14,7 @@ type IService interface {
 	AuthService() IAuthService
 	PersonService() IPersonService
 	NoteService() INoteService
+	ExpenseService() IExpenseService
 }
 
 type Handler struct {
