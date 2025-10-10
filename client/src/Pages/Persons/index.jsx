@@ -13,6 +13,7 @@ export default () => {
       const resp = await httpClient.get("/person/")
 
       if (resp.status == 200 && resp.data) {
+        console.log(resp.data)
         setPersons(resp.data)
       }
     })()

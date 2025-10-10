@@ -10,7 +10,14 @@ func (r *Router) ApplyNoeRoutes(e *echo.Echo) {
 
 	t := e.Group("/tag")
 	t.GET("/top-tags", r.h.HandleGetTopTags)
+	t.GET("/", r.h.HandleQueryTags)
 
 	m := e.Group("/mention")
 	m.GET("/top-mentions", r.h.HandleGetTopMentions)
+
+	p := e.Group("/place")
+	p.GET("/", r.h.HandleQueryPlaces)
+
+	s := e.Group("/stats")
+	s.GET("/", r.h.HandleGetQueryStatistics)
 }

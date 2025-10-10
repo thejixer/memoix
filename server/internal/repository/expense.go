@@ -144,3 +144,57 @@ func (r *ExpenseRepo) Create(ctx context.Context, expense *models.ExpenseEntity,
 	return expense, nil
 
 }
+
+func (r *ExpenseRepo) AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error) {
+
+	// Ensure startDate is before endDate
+	if startDate.After(endDate) {
+		startDate, endDate = endDate, startDate // Swap if needed
+	}
+
+	// Truncate to midnight for consistent date ranges
+	startDate = startDate.Truncate(24 * time.Hour)
+	endDate = endDate.Truncate(24 * time.Hour).Add(24 * time.Hour) // include the whole end day
+
+	query := `
+		SELECT 
+			DATE(date) AS expense_date, 
+			SUM(amount) AS total_amount
+		FROM 
+			expenses
+		WHERE 
+			user_id = $1 AND date >= $2 AND date < $3
+		GROUP BY 
+			expense_date
+		ORDER BY 
+			expense_date;
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 1: %w", err)
+	}
+	defer rows.Close()
+
+	var expenses []*models.DailyExpenseDto
+	for rows.Next() {
+		expense := new(models.DailyExpenseDto)
+		var dateStr string // Temporary string to parse the date
+		if err := rows.Scan(&dateStr, &expense.Total); err != nil {
+			return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 2: %w", err)
+		}
+		// expense.Date, err = time.Parse("2006-01-02", dateStr) // Parse the date string
+		expense.Date, err = time.Parse(time.RFC3339, dateStr)
+
+		if err != nil {
+			return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 3: %w", err)
+		}
+		expenses = append(expenses, expense)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 4: %w", err)
+	}
+
+	return expenses, nil
+}

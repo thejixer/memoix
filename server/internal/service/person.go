@@ -16,7 +16,7 @@ import (
 
 type IPersonRepository interface {
 	Create(ctx context.Context, name string, userID uint64) (*models.PersonEntity, error)
-	Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error)
+	Query(ctx context.Context, text string, userID uint64, limit, offset *int) ([]*models.PersonEntity, error)
 	FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error)
 	SetAvatar(ctx context.Context, avatar string, personID, userID uint64) (bool, error)
 	UpdateName(ctx context.Context, oldName, newName string, userID uint64) (bool, error)
@@ -44,10 +44,9 @@ func (s *PersonService) CreatePerson(ctx context.Context, name string, userID ui
 	return person, nil
 }
 
-func (s *PersonService) Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error) {
-	persons, err := s.dbStore.PersonRepo().Query(ctx, text, userID)
+func (s *PersonService) Query(ctx context.Context, text string, userID uint64, limit, offset *int) ([]*models.PersonEntity, error) {
+	persons, err := s.dbStore.PersonRepo().Query(ctx, text, userID, limit, offset)
 	if err != nil {
-		fmt.Println("error here ", err)
 		return nil, fmt.Errorf("error in PersonService.Query: %w", err)
 	}
 	return persons, nil
@@ -58,7 +57,7 @@ func (s *PersonService) FindById(ctx context.Context, id, userID uint64) (*model
 	if err != nil {
 		return nil, fmt.Errorf("error in PersonService.FindById: %w", err)
 	}
-	return person, err
+	return person, nil
 }
 
 func (s *PersonService) generateFileName(personID uint64, ext string) string {

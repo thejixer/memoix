@@ -1,10 +1,10 @@
-import { useOutletContext } from "react-router";
 import { useState , useEffect} from "react";
 import httpClient from "../../utils/http";
 import colors from "../../utils/colors";
 import Notes from "../../components/notes";
 import CreateNote from "./create-note";
 import CreateExpense from "./create-expense";
+import { formatDateTime } from "../../utils/date";
 
 const CreateModal = ({ isOpen, closeModal }) => {
 
@@ -79,6 +79,76 @@ const CreateModal = ({ isOpen, closeModal }) => {
 
 }
 
+const StatsModal = ({ isOpen, closeModal, stats }) => {
+
+  return isOpen &&     <>
+      <div style={{
+        position: "fixed",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 600,
+        background: "#000",
+        border: "1px solid #33ff33",
+        zIndex: 12,
+        color: "#33ff33",
+        padding: "1rem",
+        borderRadius: "8px"
+      }}
+    className="stats-container"
+    >
+      <div className="stat-item">
+        <span className="stat-title">Total count:</span>
+        <span className="stat-value"> {stats.total_count} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">first occurnace:</span>
+        <span className="stat-value"> {formatDateTime(new Date(stats.first_date))} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">last occurnace:</span>
+        <span className="stat-value"> {formatDateTime(new Date(stats.last_date))} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">average gap:</span>
+        <span className="stat-value"> {stats.average_gap.toFixed(3)} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">median gap:</span>
+        <span className="stat-value"> {stats.median_gap.toFixed(3)} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">min gap:</span>
+        <span className="stat-value"> {stats.min_gap.toFixed(3)} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">max gap:</span>
+        <span className="stat-value"> {stats.max_gap.toFixed(3)} </span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-title">stdv gap:</span>
+        <span className="stat-value"> {stats.std_dev_gap.toFixed(3)} </span>
+      </div>
+
+
+
+        
+      </div>
+      <div style={{
+        width: "100vw",
+        height: "100vh",
+        background: "#000",
+        opacity: .9,
+        top: 0,
+        left: 0,
+        position: "fixed",
+        zIndex: 11
+      }}  
+      onClick={() => closeModal()}>
+      </div>
+    </>
+}
+
 export default () => {
 
   const [query, setQuery] = useState("")
@@ -86,47 +156,57 @@ export default () => {
   const [topMentions, setTopMentions] = useState([])
   const [notes, setNotes] = useState([])
   const [isModalOpen, setModalOpen] = useState(false)
+  const [stats, setStats] = useState(null)
+  const [isStatsModalOpen, setStatsModalOpen] = useState(false)
 
   const fetchTopTags = async (q) => {
-
-    const resp = await httpClient.get(`/tag/top-tags?query=${encodeURIComponent(q)}`)
-    if (resp.status == 200) {
-      if (resp.data) {
+    try {
+      console.log("attempting to query : ", encodeURIComponent(q))
+      const resp = await httpClient.get(`/tag/top-tags?query=${encodeURIComponent(q)}`)
+      if (resp.status == 200 && resp.data) {
         setTopTags(resp.data)
-      } else {
-        setTopTags([])
+        return
       }
-    } else {
-      console.error(resp.data)
+      throw new Error("")
+    } catch {
       setTopTags([])
     }
+
   }
 
   const fetchTopMentions = async (q) => {
-    const resp = await httpClient.get(`/mention/top-mentions?query=${encodeURIComponent(q)}`)
-    if (resp.status == 200) {
-      if (resp.data) {
+    try {
+      const resp = await httpClient.get(`/mention/top-mentions?query=${encodeURIComponent(q)}`)
+      if (resp.status == 200 && resp.data) {
         setTopMentions(resp.data)
-      } else {
-        setTopMentions([])
+        return
       }
-    } else {
-      console.error(resp.data)
+      throw new Error("")
+    } catch (error) {
       setTopMentions([])
     }
   }
 
   const fetchNotes = async q => {
-    const resp = await httpClient.get(`/note/?query=${encodeURIComponent(q)}`)
-    if (resp.status == 200) {
-      if (resp.data) {
+    try {
+      const resp = await httpClient.get(`/note/?query=${encodeURIComponent(q)}`)
+      if (resp.status == 200 && resp.data) {
         setNotes(resp.data)
-      } else {
-        setNotes([])
+        return
       }
-    } else {
-      console.error(resp.data)
+      throw new Error("")
+    } catch (error) {
       setNotes([])
+    }
+  }
+
+  const fetchStatistics = async q => {
+    try {
+      const resp = await httpClient.get(`/stats/?query=${encodeURIComponent(q)}`)
+      if (resp.status == 200 && resp.data) return setStats(resp.data)
+      throw new Error("")
+    } catch (error) {
+      setStats(null)
     }
   }
 
@@ -134,6 +214,7 @@ export default () => {
     fetchTopMentions(q)
     fetchTopTags(q)
     fetchNotes(q)
+    fetchStatistics(q)
   }
 
   useEffect(() => {
@@ -147,14 +228,31 @@ export default () => {
         isOpen={isModalOpen}
         closeModal={() => setModalOpen(false)}
       />
+      <StatsModal
+        isOpen={isStatsModalOpen}
+        closeModal={() => setStatsModalOpen(false)}
+        stats={stats}
+      />
       
       <div className="g-btn"
         style={{
-          position: "absolute", top: 8, left: 8,
+          position: "absolute", top: 8, left: 8
         }}
         onClick={() => setModalOpen(true)}
       >
         create
+      </div>
+      <div className="g-btn"
+        style={{
+          position: "absolute", top: 8, right: 8,
+          cursor: !stats ? "no-drop" : "pointer"
+        }}
+        onClick={() => {
+          if (!stats) return
+          setStatsModalOpen(true)
+        }}
+      >
+        stats
       </div>
 
       <br />
@@ -173,10 +271,10 @@ export default () => {
           }}
           onChange={e => {
             setQuery(e.target.value)
-          }} 
-          
-          />
-        <button className="g-btn" style={{margin: 1}} onClick={() => {
+          }}
+        />
+        
+        <button className="g-btn" style={{ margin: 1 }} onClick={() => {
           fetchAll(query)
         }} >search</button>
         
@@ -191,7 +289,16 @@ export default () => {
           }}>
           clear filters
           
-          </button>
+        </button>
+        {/* {
+          stats
+          &&
+            <button
+              className="g-btn"
+              
+
+            > stats </button>
+        } */}
         
         
       </div>

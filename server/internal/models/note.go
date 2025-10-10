@@ -25,6 +25,14 @@ type CreateNoteDto struct {
 	Date    time.Time `json:"date" validate:"required"`
 }
 
+type TagDto struct {
+	Name string `json:"name"`
+}
+
+type PlaceDto struct {
+	Name string `json:"name"`
+}
+
 type TagUsageDto struct {
 	Name       string `json:"name"`
 	UsageCount uint64 `json:"usage_count"`
@@ -42,4 +50,20 @@ type EntryDto struct {
 	Amount  *float64  `json:"amount,omitempty"` // Nullable for notes
 	Date    time.Time `json:"date"`
 	Type    string    `json:"type"` // "note" or "expense"
+}
+
+type QueryStats struct {
+	// Core counts
+	TotalCount int `json:"total_count"`
+
+	// Temporal boundaries
+	FirstDate time.Time `json:"first_date"`
+	LastDate  time.Time `json:"last_date"`
+
+	// Gap statistics (in days)
+	AverageGap float64 `json:"average_gap"`
+	MedianGap  float64 `json:"median_gap"`
+	MinGap     float64 `json:"min_gap"`
+	MaxGap     float64 `json:"max_gap"`
+	StdDevGap  float64 `json:"std_dev_gap"`
 }

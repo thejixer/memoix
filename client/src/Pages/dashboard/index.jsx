@@ -1,1 +1,11 @@
-export default () => <div className="cg" > <h1>coming soon !</h1></div>
+import RecentExpenses from "./recent-expenses"
+
+
+export default () => {
+
+  return (
+    <div className="cg" >
+      <RecentExpenses />
+    </div>
+  )
+}

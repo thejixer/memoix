@@ -49,7 +49,7 @@ services:
       timeout: 5s
   backend:
     build:
-      context: ./server # Corrected build context
+      context: ./server
       dockerfile: ./Dockerfile
     depends_on:
       - db

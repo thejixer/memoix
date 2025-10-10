@@ -5,6 +5,7 @@ import (
 	"memoix-server/internal/adapters"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
+	"memoix-server/internal/utils"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 
 type IPersonService interface {
 	CreatePerson(ctx context.Context, name string, userID uint64) (*models.PersonEntity, error)
-	Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error)
+	Query(ctx context.Context, text string, userID uint64, limit, offset *int) ([]*models.PersonEntity, error)
 	FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error)
 	UploadAvatar(ctx context.Context, file *multipart.FileHeader, person *models.PersonEntity, userID uint64) (bool, error)
 	UpdateName(ctx context.Context, oldName, newName string, userID uint64) (bool, error)
@@ -49,15 +50,19 @@ func (h *Handler) HandleCreatePerson(c echo.Context) error {
 }
 
 func (h *Handler) HandleQueryPersons(c echo.Context) error {
-	t := c.Param("text")
+	t := c.QueryParam("text")
 
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
+	limitStr := c.QueryParam("limit")
+	pageStr := c.QueryParam("page")
 
-	persons, err := h.Service.PersonService().Query(ctx, t, requester.ID)
+	limitPtr, offsetPtr := utils.ParsePagination(limitStr, pageStr)
+
+	persons, err := h.Service.PersonService().Query(ctx, t, requester.ID, limitPtr, offsetPtr)
 	if err != nil {
 		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
 	}

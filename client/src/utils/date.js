@@ -26,3 +26,21 @@ export function formatDate(dateString) {
     return `${month}-${day}-${year} ${hours}:${minutes}`;
   }
 }
+
+export function formatDateTime(date) {
+  console.log(date)
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return "invalid date"
+  }
+
+  const pad = (n) => n.toString().padStart(2, "0");
+
+  const month = pad(date.getMonth() + 1); // months are 0-based
+  const day = pad(date.getDate());
+  const year = date.getFullYear();
+
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+
+  return `${month}-${day}-${year} ${hours}:${minutes}`;
+}

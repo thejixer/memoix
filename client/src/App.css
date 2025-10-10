@@ -104,3 +104,30 @@ html, body {
   background: rgb(21, 85, 27)
 }
 
+.stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  max-width: 420px;
+  font-family: system-ui, sans-serif;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat-title {
+  font-weight: 600;
+  color: #33ff33;
+}
+
+.stat-value {
+  color: #007bff;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

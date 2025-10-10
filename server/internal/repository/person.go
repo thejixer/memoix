@@ -92,7 +92,8 @@ func (r *PersonRepo) Create(ctx context.Context, name string, userID uint64) (*m
 	return NewPerson, nil
 }
 
-func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*models.PersonEntity, error) {
+func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64, limit, offset *int) ([]*models.PersonEntity, error) {
+
 	query := `
 		SELECT
 				p.id,
@@ -102,25 +103,36 @@ func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*
 				p.phone_number,
 				p.birthday,
 				p.created_at,
-				COUNT(m.id) AS mention_count,
-				COUNT(e.expense_id) AS expense_count,
-				COUNT(m.id) + COUNT(e.expense_id) AS total_count
+				COALESCE(mention_counts.count, 0) AS mention_count,
+				COALESCE(expense_counts.count, 0) AS expense_count,
+				COALESCE(mention_counts.count, 0) + COALESCE(expense_counts.count, 0) AS total_count
 		FROM
 				persons p
-		LEFT JOIN
-				notes_persons m ON p.id = m.person_id
-		LEFT JOIN
-				expense_persons e ON p.id = e.person_id
+		LEFT JOIN (
+				SELECT person_id, COUNT(*) AS count
+				FROM notes_persons
+				GROUP BY person_id
+		) AS mention_counts ON p.id = mention_counts.person_id
+		LEFT JOIN (
+				SELECT person_id, COUNT(*) AS count
+				FROM expense_persons
+				GROUP BY person_id
+		) AS expense_counts ON p.id = expense_counts.person_id
 		WHERE
 				p.name ILIKE $1 AND p.user_id = $2
-		GROUP BY
-				p.id, p.name
 		ORDER BY
-				total_count DESC;
+				total_count DESC
 	`
 
-	str := "%" + strings.ToLower(text) + "%"
-	rows, err := r.db.QueryContext(ctx, query, str, userID)
+	// add pagination if both limit and offset are provided
+	args := []any{"%" + strings.ToLower(text) + "%", userID}
+
+	if limit != nil && offset != nil {
+		query += " LIMIT $3 OFFSET $4"
+		args = append(args, *limit, *offset)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error in personRepo.Query: %w", err)
 	}
@@ -129,9 +141,7 @@ func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*
 	persons := []*models.PersonEntity{}
 	for rows.Next() {
 		u := new(models.PersonEntity)
-		var count int64
-		var mentionCount int64
-		var expenseCount int64
+		var mentionCount, expenseCount, totalCount int64
 
 		if err := rows.Scan(
 			&u.ID,
@@ -143,14 +153,14 @@ func (r *PersonRepo) Query(ctx context.Context, text string, userID uint64) ([]*
 			&u.CreatedAt,
 			&mentionCount,
 			&expenseCount,
-			&count,
+			&totalCount,
 		); err != nil {
-			return nil, fmt.Errorf("error in personRepo.Query: %w", err)
+			return nil, fmt.Errorf("error in personRepo.Query scan: %w", err)
 		}
 		persons = append(persons, u)
 	}
-	return persons, nil
 
+	return persons, nil
 }
 
 func (r *PersonRepo) FindById(ctx context.Context, id, userID uint64) (*models.PersonEntity, error) {
@@ -214,11 +224,11 @@ func (r *PersonRepo) UpdateName(ctx context.Context, oldName, newName string, us
 
 	// Step 2: Update all notes that mention @oldName to @newName
 	updateNotesQuery := `
-		UPDATE notes 
-		SET content = REPLACE(content, '@' || $1, '@' || $2) 
-		WHERE content LIKE '%' || '@' || $1 || '%'
-		AND user_id = $3
-	`
+    UPDATE notes 
+    SET content = REGEXP_REPLACE(content, '(@' || $1 || ')(\m)', '@' || $2, 'g')
+    WHERE content ~ ('@' || $1 || '\m')
+    AND user_id = $3
+`
 	_, err = tx.ExecContext(ctx, updateNotesQuery, oldName, newName, userID)
 	if err != nil {
 		tx.Rollback()
@@ -227,15 +237,15 @@ func (r *PersonRepo) UpdateName(ctx context.Context, oldName, newName string, us
 
 	// Step 3: Update all expenses that mention @oldName to @newName
 	updateExpensesQuery := `
-		UPDATE expenses 
-		SET content = REPLACE(content, '@' || $1, '@' || $2) 
-		WHERE content LIKE '%' || '@' || $1 || '%'
-		AND user_id = $3
-	`
+    UPDATE expenses 
+    SET content = REGEXP_REPLACE(content, '(@' || $1 || ')(\m)', '@' || $2, 'g')
+    WHERE content ~ ('@' || $1 || '\m')
+    AND user_id = $3
+`
 	_, err = tx.ExecContext(ctx, updateExpensesQuery, oldName, newName, userID)
 	if err != nil {
 		tx.Rollback()
-		return false, fmt.Errorf("failed to update expensews content: %w", err)
+		return false, fmt.Errorf("failed to update expenses content: %w", err)
 	}
 
 	// Commit transaction if everything succeeded

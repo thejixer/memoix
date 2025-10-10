@@ -172,174 +172,37 @@ func (r *NoteRepo) Create(ctx context.Context, content string, date time.Time, t
 	return NewNote, nil
 }
 
-func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions []string, userID uint64) ([]*models.TagUsageDto, error) {
-	args := []any{userID}
-	argIndex := 2
-	var hashtagFilters, mentionFilters, exclusionFilters []string
-
-	// Prepare Hashtag conditions for filtering and exclusion
-	if len(hashtags) > 0 {
-		for _, tag := range hashtags {
-			hashtagFilters = append(hashtagFilters, fmt.Sprintf("$%d", argIndex))
-			exclusionFilters = append(exclusionFilters, fmt.Sprintf("$%d", argIndex)) // For exclusion later
-			args = append(args, tag)
-			argIndex++
-		}
+func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.TagUsageDto, error) {
+	queryParts := QueryParts{
+		NoteConditions:    []string{"n.user_id = $1"},
+		ExpenseConditions: []string{"e.user_id = $1"},
+		Values:            []any{userID},
+		Counter:           2,
 	}
 
-	// Prepare Mention conditions
-	if len(mentions) > 0 {
-		for _, mention := range mentions {
-			mentionFilters = append(mentionFilters, fmt.Sprintf("$%d", argIndex))
-			args = append(args, mention[1:]) // Remove '@'
-			argIndex++
-		}
+	// ✅ Apply all filters — unified strategy for hashtags, mentions, and places
+	filters := []FilterStrategy{
+		HashtagFilter{Hashtags: hashtags},
+		MentionFilter{Mentions: mentions},
+		PlaceFilter{Places: places},
 	}
 
-	// Start query construction
-	query := `
-			WITH filtered_items AS (
-					SELECT n.id, 'note' AS type
-					FROM notes n
-					LEFT JOIN notes_tags nt ON n.id = nt.note_id
-					LEFT JOIN tags t ON nt.tag_id = t.id
-					LEFT JOIN notes_persons np ON n.id = np.note_id
-					LEFT JOIN persons p ON np.person_id = p.id
-					WHERE n.user_id = $1
-	`
-
-	// Apply AND filtering for hashtags if any
-	if len(hashtags) > 0 {
-		query += fmt.Sprintf(`
-					AND n.id IN (
-							SELECT note_id FROM notes_tags nt
-							JOIN tags t ON nt.tag_id = t.id
-							WHERE t.name IN (%s)
-							GROUP BY nt.note_id
-							HAVING COUNT(DISTINCT t.name) = %d
-					)`, strings.Join(hashtagFilters, ", "), len(hashtags))
+	for _, filter := range filters {
+		filter.ApplyFilter(&queryParts)
 	}
 
-	// Apply AND filtering for mentions if any
-	if len(mentions) > 0 {
-		query += fmt.Sprintf(`
-					AND n.id IN (
-							SELECT note_id FROM notes_persons np
-							JOIN persons p ON np.person_id = p.id
-							WHERE p.name IN (%s)
-							GROUP BY np.note_id
-							HAVING COUNT(DISTINCT p.name) = %d
-					)`, strings.Join(mentionFilters, ", "), len(mentions))
+	// Build WHERE conditions
+	conditionStringNotes := ""
+	conditionStringExpenses := ""
+	if len(queryParts.NoteConditions) > 0 {
+		conditionStringNotes = "WHERE " + strings.Join(queryParts.NoteConditions, " AND ")
+	}
+	if len(queryParts.ExpenseConditions) > 0 {
+		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
 	}
 
-	// Continue with the query for expenses
-	query += `
-					GROUP BY n.id
-
-					UNION ALL
-
-					SELECT e.id, 'expense' AS type
-					FROM expenses e
-					LEFT JOIN expense_tags et ON e.id = et.expense_id
-					LEFT JOIN tags t ON et.tag_id = t.id
-					LEFT JOIN expense_persons ep ON e.id = ep.expense_id
-					LEFT JOIN persons p ON ep.person_id = p.id
-					WHERE e.user_id = $1
-	`
-
-	// Apply AND filtering for hashtags in expenses
-	if len(hashtags) > 0 {
-		query += fmt.Sprintf(`
-					AND e.id IN (
-							SELECT expense_id FROM expense_tags et
-							JOIN tags t ON et.tag_id = t.id
-							WHERE t.name IN (%s)
-							GROUP BY et.expense_id
-							HAVING COUNT(DISTINCT t.name) = %d
-					)`, strings.Join(hashtagFilters, ", "), len(hashtags))
-	}
-
-	// Apply AND filtering for mentions in expenses
-	if len(mentions) > 0 {
-		query += fmt.Sprintf(`
-					AND e.id IN (
-							SELECT expense_id FROM expense_persons ep
-							JOIN persons p ON ep.person_id = p.id
-							WHERE p.name IN (%s)
-							GROUP BY ep.expense_id
-							HAVING COUNT(DISTINCT p.name) = %d
-					)`, strings.Join(mentionFilters, ", "), len(mentions))
-	}
-
-	// Closing the CTE
-	query += `
-					GROUP BY e.id
-			)
-
-			SELECT t.name, COUNT(*) AS usage_count
-			FROM (
-					SELECT nt.tag_id FROM notes_tags nt WHERE nt.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
-					UNION ALL
-					SELECT et.tag_id FROM expense_tags et WHERE et.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
-			) item_tags
-			JOIN tags t ON item_tags.tag_id = t.id
-	`
-
-	// Only add the exclusion filter if there are hashtags to exclude
-	if len(exclusionFilters) > 0 {
-		query += ` WHERE t.name NOT IN (` + strings.Join(exclusionFilters, ", ") + `) -- Exclude search hashtags`
-	}
-
-	query += `
-			GROUP BY t.id, t.name
-			ORDER BY usage_count DESC
-			LIMIT 10;
-	`
-
-	// Execute query
-	rows, err := r.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error in NoteRepo.GetTopTags: %w", err)
-	}
-	defer rows.Close()
-
-	var tags []*models.TagUsageDto
-	for rows.Next() {
-		tag := new(models.TagUsageDto)
-		if err := rows.Scan(&tag.Name, &tag.UsageCount); err != nil {
-			return nil, err
-		}
-		tags = append(tags, tag)
-	}
-
-	return tags, nil
-}
-
-func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions []string, userID uint64) ([]*models.MentionUsageDto, error) {
-	args := []any{userID}
-	argIndex := 2
-	var hashtagFilters, mentionFilters, exclusionFilters []string
-
-	// Prepare Hashtag conditions for filtering
-	if len(hashtags) > 0 {
-		for _, tag := range hashtags {
-			hashtagFilters = append(hashtagFilters, fmt.Sprintf("$%d", argIndex))
-			args = append(args, tag)
-			argIndex++
-		}
-	}
-
-	// Prepare Mention conditions for filtering
-	if len(mentions) > 0 {
-		for _, mention := range mentions {
-			mentionFilters = append(mentionFilters, fmt.Sprintf("$%d", argIndex))
-			exclusionFilters = append(exclusionFilters, fmt.Sprintf("$%d", argIndex)) // For exclusion later
-			args = append(args, mention[1:])                                          // Remove '@'
-			argIndex++
-		}
-	}
-
-	query := `
+	// ✅ Construct query with filtered notes + expenses
+	query := fmt.Sprintf(`
 		WITH filtered_items AS (
 			SELECT n.id, 'note' AS type
 			FROM notes n
@@ -347,91 +210,151 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions []stri
 			LEFT JOIN tags t ON nt.tag_id = t.id
 			LEFT JOIN notes_persons np ON n.id = np.note_id
 			LEFT JOIN persons p ON np.person_id = p.id
-			WHERE n.user_id = $1
-	`
+			LEFT JOIN notes_places npl ON n.id = npl.note_id
+			LEFT JOIN places pl ON npl.place_id = pl.id
+			%s
+			GROUP BY n.id
 
-	// Apply AND filtering for hashtags
-	if len(hashtags) > 0 {
-		query += fmt.Sprintf(`
-			AND n.id IN (
-				SELECT note_id FROM notes_tags nt
-				JOIN tags t ON nt.tag_id = t.id
-				WHERE t.name IN (%s)
-				GROUP BY nt.note_id
-				HAVING COUNT(DISTINCT t.name) = %d
-			)`, strings.Join(hashtagFilters, ", "), len(hashtags))
-	}
+			UNION ALL
 
-	// Apply AND filtering for mentions
-	if len(mentions) > 0 {
-		query += fmt.Sprintf(`
-			AND n.id IN (
-				SELECT note_id FROM notes_persons np
-				JOIN persons p ON np.person_id = p.id
-				WHERE p.name IN (%s)
-				GROUP BY np.note_id
-				HAVING COUNT(DISTINCT p.name) = %d
-			)`, strings.Join(mentionFilters, ", "), len(mentions))
-	}
-
-	query += ` GROUP BY n.id
-
-		UNION ALL
-
-		SELECT e.id, 'expense' AS type
-		FROM expenses e
-		LEFT JOIN expense_tags et ON e.id = et.expense_id
-		LEFT JOIN tags t ON et.tag_id = t.id
-		LEFT JOIN expense_persons ep ON e.id = ep.expense_id
-		LEFT JOIN persons p ON ep.person_id = p.id
-		WHERE e.user_id = $1
-	`
-
-	// Apply AND filtering for hashtags in expenses
-	if len(hashtags) > 0 {
-		query += fmt.Sprintf(`
-			AND e.id IN (
-				SELECT expense_id FROM expense_tags et
-				JOIN tags t ON et.tag_id = t.id
-				WHERE t.name IN (%s)
-				GROUP BY et.expense_id
-				HAVING COUNT(DISTINCT t.name) = %d
-			)`, strings.Join(hashtagFilters, ", "), len(hashtags))
-	}
-
-	// Apply AND filtering for mentions in expenses
-	if len(mentions) > 0 {
-		query += fmt.Sprintf(`
-			AND e.id IN (
-				SELECT expense_id FROM expense_persons ep
-				JOIN persons p ON ep.person_id = p.id
-				WHERE p.name IN (%s)
-				GROUP BY ep.expense_id
-				HAVING COUNT(DISTINCT p.name) = %d
-			)`, strings.Join(mentionFilters, ", "), len(mentions))
-	}
-
-	query += ` GROUP BY e.id
+			SELECT e.id, 'expense' AS type
+			FROM expenses e
+			LEFT JOIN expense_tags et ON e.id = et.expense_id
+			LEFT JOIN tags t ON et.tag_id = t.id
+			LEFT JOIN expense_persons ep ON e.id = ep.expense_id
+			LEFT JOIN persons p ON ep.person_id = p.id
+			LEFT JOIN expense_places epl ON e.id = epl.expense_id
+			LEFT JOIN places pl ON epl.place_id = pl.id
+			%s
+			GROUP BY e.id
 		)
+		SELECT t.name, COUNT(*) AS usage_count
+		FROM (
+			SELECT nt.tag_id
+			FROM notes_tags nt
+			WHERE nt.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
 
+			UNION ALL
+
+			SELECT et.tag_id
+			FROM expense_tags et
+			WHERE et.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
+		) item_tags
+		JOIN tags t ON item_tags.tag_id = t.id
+		GROUP BY t.id, t.name
+		ORDER BY usage_count DESC
+		LIMIT 10;
+	`, conditionStringNotes, conditionStringExpenses)
+
+	// ✅ Execute query
+	rows, err := r.db.QueryContext(ctx, query, queryParts.Values...)
+	if err != nil {
+		return nil, fmt.Errorf("error in GetTopTags: %w", err)
+	}
+	defer rows.Close()
+
+	var tags []*models.TagUsageDto
+	for rows.Next() {
+		tag := new(models.TagUsageDto)
+		if err := rows.Scan(&tag.Name, &tag.UsageCount); err != nil {
+			return nil, fmt.Errorf("error scanning GetTopTags: %w", err)
+		}
+		tags = append(tags, tag)
+	}
+
+	return tags, nil
+}
+
+func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.MentionUsageDto, error) {
+	queryParts := QueryParts{
+		NoteConditions:    []string{"n.user_id = $1"},
+		ExpenseConditions: []string{"e.user_id = $1"},
+		Values:            []any{userID},
+		Counter:           2,
+	}
+
+	// ✅ Apply unified filter strategy for hashtags, mentions, and places
+	filters := []FilterStrategy{
+		HashtagFilter{Hashtags: hashtags},
+		MentionFilter{Mentions: mentions},
+		PlaceFilter{Places: places},
+	}
+
+	for _, filter := range filters {
+		filter.ApplyFilter(&queryParts)
+	}
+
+	// Build WHERE conditions
+	conditionStringNotes := ""
+	conditionStringExpenses := ""
+	if len(queryParts.NoteConditions) > 0 {
+		conditionStringNotes = "WHERE " + strings.Join(queryParts.NoteConditions, " AND ")
+	}
+	if len(queryParts.ExpenseConditions) > 0 {
+		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
+	}
+
+	// ✅ Main query — uses unified filtering and includes places
+	query := fmt.Sprintf(`
+		WITH filtered_items AS (
+			SELECT n.id, 'note' AS type
+			FROM notes n
+			LEFT JOIN notes_tags nt ON n.id = nt.note_id
+			LEFT JOIN tags t ON nt.tag_id = t.id
+			LEFT JOIN notes_persons np ON n.id = np.note_id
+			LEFT JOIN persons p ON np.person_id = p.id
+			LEFT JOIN notes_places npl ON n.id = npl.note_id
+			LEFT JOIN places pl ON npl.place_id = pl.id
+			%s
+			GROUP BY n.id
+
+			UNION ALL
+
+			SELECT e.id, 'expense' AS type
+			FROM expenses e
+			LEFT JOIN expense_tags et ON e.id = et.expense_id
+			LEFT JOIN tags t ON et.tag_id = t.id
+			LEFT JOIN expense_persons ep ON e.id = ep.expense_id
+			LEFT JOIN persons p ON ep.person_id = p.id
+			LEFT JOIN expense_places epl ON e.id = epl.expense_id
+			LEFT JOIN places pl ON epl.place_id = pl.id
+			%s
+			GROUP BY e.id
+		)
 		SELECT p.id, p.name, COUNT(*) AS mention_count
 		FROM (
-			SELECT np.person_id FROM notes_persons np WHERE np.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
+			SELECT np.person_id
+			FROM notes_persons np
+			WHERE np.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
+
 			UNION ALL
-			SELECT ep.person_id FROM expense_persons ep WHERE ep.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
+
+			SELECT ep.person_id
+			FROM expense_persons ep
+			WHERE ep.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
 		) item_mentions
 		JOIN persons p ON item_mentions.person_id = p.id
-	`
+	`, conditionStringNotes, conditionStringExpenses)
 
-	// Exclude requested mentions from the result
+	// ✅ Exclude search mentions (so they don't appear in top list)
 	if len(mentions) > 0 {
-		query += " WHERE p.name NOT IN (" + strings.Join(exclusionFilters, ", ") + ")"
+		exclusion := make([]string, 0, len(mentions))
+		for _, m := range mentions {
+			exclusion = append(exclusion, fmt.Sprintf("$%d", queryParts.Counter))
+			queryParts.Values = append(queryParts.Values, m[1:]) // remove '@'
+			queryParts.Counter++
+		}
+		query += fmt.Sprintf(" WHERE p.name NOT IN (%s)", strings.Join(exclusion, ", "))
 	}
 
-	query += ` GROUP BY p.id, p.name ORDER BY mention_count DESC LIMIT 10;`
+	query += `
+		GROUP BY p.id, p.name
+		ORDER BY mention_count DESC
+		LIMIT 10;
+	`
 
-	// Execute query
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	// ✅ Execute query
+	rows, err := r.db.QueryContext(ctx, query, queryParts.Values...)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteRepo.GetTopMentions: %w", err)
 	}
@@ -441,7 +364,7 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions []stri
 	for rows.Next() {
 		mention := new(models.MentionUsageDto)
 		if err := rows.Scan(&mention.ID, &mention.Name, &mention.UsageCount); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error scanning GetTopMentions: %w", err)
 		}
 		mentionsList = append(mentionsList, mention)
 	}
@@ -449,103 +372,80 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions []stri
 	return mentionsList, nil
 }
 
-func (r *NoteRepo) GetNotesAndExpenses(ctx context.Context, hashtags, mentions []string, userID uint64) ([]*models.EntryEntity, error) {
+func (r *NoteRepo) QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error) {
 	query := `
-			WITH filtered_notes AS (
-					SELECT n.id, n.user_id, n.content, NULL::NUMERIC AS amount, n.date, 'note' AS type
-					FROM notes n
-					LEFT JOIN notes_tags nt ON n.id = nt.note_id
-					LEFT JOIN tags t ON nt.tag_id = t.id
-					LEFT JOIN notes_persons m ON n.id = m.note_id
-					LEFT JOIN persons p ON m.person_id = p.id
-					WHERE n.user_id = $1
+		SELECT name
+		FROM tags
+		WHERE user_id = $1
+		  AND name ILIKE $2
+		ORDER BY name ASC
 	`
+	args := []interface{}{userId, "%" + text + "%"}
 
-	args := []any{userID}
-	argIndex := 2
-
-	// Hashtag filtering (AND logic)
-	if len(hashtags) > 0 {
-		placeholders := make([]string, len(hashtags))
-		for i, tag := range hashtags {
-			placeholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, tag)
-			argIndex++
-		}
-		query += fmt.Sprintf(" AND n.id IN (SELECT note_id FROM notes_tags nt JOIN tags t ON nt.tag_id = t.id WHERE t.name IN (%s) GROUP BY nt.note_id HAVING COUNT(DISTINCT t.name) = %d)", strings.Join(placeholders, ", "), len(hashtags))
+	// apply LIMIT + OFFSET only if both are provided
+	if limit != nil && offset != nil {
+		query += " LIMIT $3 OFFSET $4"
+		args = append(args, *limit, *offset)
 	}
-
-	// Mention filtering (AND logic)
-	if len(mentions) > 0 {
-		placeholders := make([]string, len(mentions))
-		for i, mention := range mentions {
-			placeholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, mention[1:]) // Remove '@' prefix from mention
-			argIndex++
-		}
-		query += fmt.Sprintf(" AND n.id IN (SELECT note_id FROM notes_persons m JOIN persons p ON m.person_id = p.id WHERE p.name IN (%s) GROUP BY m.note_id HAVING COUNT(DISTINCT p.name) = %d)", strings.Join(placeholders, ", "), len(mentions))
-	}
-
-	query += " GROUP BY n.id), "
-
-	query += `
-			filtered_expenses AS (
-					SELECT e.id, e.user_id, e.content, e.amount, e.date, 'expense' AS type
-					FROM expenses e
-					LEFT JOIN expense_tags et ON e.id = et.expense_id
-					LEFT JOIN tags t ON et.tag_id = t.id
-					LEFT JOIN expense_persons ep ON e.id = ep.expense_id
-					LEFT JOIN persons p ON ep.person_id = p.id
-					WHERE e.user_id = $1
-	`
-
-	// Hashtag filtering (AND logic) for expenses
-	if len(hashtags) > 0 {
-		placeholders := make([]string, len(hashtags))
-		for i, tag := range hashtags {
-			placeholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, tag)
-			argIndex++
-		}
-		query += fmt.Sprintf(" AND e.id IN (SELECT expense_id FROM expense_tags et JOIN tags t ON et.tag_id = t.id WHERE t.name IN (%s) GROUP BY et.expense_id HAVING COUNT(DISTINCT t.name) = %d)", strings.Join(placeholders, ", "), len(hashtags))
-	}
-
-	// Mention filtering (AND logic) for expenses
-	if len(mentions) > 0 {
-		placeholders := make([]string, len(mentions))
-		for i, mention := range mentions {
-			placeholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, mention[1:])
-			argIndex++
-		}
-		query += fmt.Sprintf(" AND e.id IN (SELECT expense_id FROM expense_persons ep JOIN persons p ON ep.person_id = p.id WHERE p.name IN (%s) GROUP BY ep.expense_id HAVING COUNT(DISTINCT p.name) = %d)", strings.Join(placeholders, ", "), len(mentions))
-	}
-
-	query += " GROUP BY e.id)"
-
-	query += `
-			SELECT * FROM filtered_notes
-			UNION ALL
-			SELECT * FROM filtered_expenses
-			ORDER BY date DESC;
-	`
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error in GetNotesAndExpenses: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	var results []*models.EntryEntity
+	var tags []*models.TagDto
 	for rows.Next() {
-		item := new(models.EntryEntity)
-		if err := rows.Scan(&item.ID, &item.UserID, &item.Content, &item.Amount, &item.Date, &item.Type); err != nil {
-			return nil, fmt.Errorf("error in GetNotesAndExpenses scanning: %w", err)
+		var t models.TagDto
+		if err := rows.Scan(&t.Name); err != nil {
+			return nil, err
 		}
-		results = append(results, item)
+		tags = append(tags, &t)
 	}
 
-	return results, nil
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
+func (r *NoteRepo) QueryPlaces(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.PlaceDto, error) {
+	query := `
+		SELECT name
+		FROM places
+		WHERE user_id = $1
+		  AND name ILIKE $2
+		ORDER BY name ASC
+	`
+	args := []interface{}{userId, "%" + text + "%"}
+
+	// apply LIMIT + OFFSET only if both are provided
+	if limit != nil && offset != nil {
+		query += " LIMIT $3 OFFSET $4"
+		args = append(args, *limit, *offset)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var places []*models.PlaceDto
+	for rows.Next() {
+		var p models.PlaceDto
+		if err := rows.Scan(&p.Name); err != nil {
+			return nil, err
+		}
+		places = append(places, &p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return places, nil
 }
 
 func (r *NoteRepo) DeleteNote(ctx context.Context, noteID, userID uint64) error {

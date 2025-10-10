@@ -7,10 +7,12 @@ import (
 	"memoix-server/internal/models"
 	"memoix-server/internal/utils"
 	"regexp"
+	"time"
 )
 
 type IExpenseRepository interface {
 	Create(ctx context.Context, expense *models.ExpenseEntity, tags, mentions, places []string) (*models.ExpenseEntity, error)
+	AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error)
 }
 
 type ExpenseService struct {
@@ -45,4 +47,12 @@ func (s *ExpenseService) Create(ctx context.Context, expense *models.ExpenseEnti
 	}
 
 	return e, nil
+}
+
+func (s *ExpenseService) AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error) {
+	dailyExpense, err := s.dbStore.ExpenseRepo().AggregateExpensesByDate(ctx, userID, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate: %w", err)
+	}
+	return dailyExpense, nil
 }

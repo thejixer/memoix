@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 
 import App from './App.jsx'
 import "./App.css"
+import "./date.css"
 
 const root = document.getElementById("root");
 // global.Domain = "http://localhost:4848"
