@@ -4,7 +4,8 @@ import colors from "../../utils/colors";
 import Notes from "../../components/notes";
 import CreateNote from "./create-note";
 import CreateExpense from "./create-expense";
-import { formatDateTime } from "../../utils/date";
+import { formatDateTime, toISODate } from "../../utils/date";
+import ActivityHeatmap from "../../components/heatmap";
 
 const CreateModal = ({ isOpen, closeModal }) => {
 
@@ -81,72 +82,79 @@ const CreateModal = ({ isOpen, closeModal }) => {
 
 const StatsModal = ({ isOpen, closeModal, stats }) => {
 
-  return isOpen &&     <>
-      <div style={{
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: 600,
-        background: "#000",
-        border: "1px solid #33ff33",
-        zIndex: 12,
-        color: "#33ff33",
-        padding: "1rem",
-        borderRadius: "8px"
-      }}
-    className="stats-container"
-    >
-      <div className="stat-item">
-        <span className="stat-title">Total count:</span>
-        <span className="stat-value"> {stats.total_count} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">first occurnace:</span>
-        <span className="stat-value"> {formatDateTime(new Date(stats.first_date))} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">last occurnace:</span>
-        <span className="stat-value"> {formatDateTime(new Date(stats.last_date))} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">average gap:</span>
-        <span className="stat-value"> {stats.average_gap.toFixed(3)} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">median gap:</span>
-        <span className="stat-value"> {stats.median_gap.toFixed(3)} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">min gap:</span>
-        <span className="stat-value"> {stats.min_gap.toFixed(3)} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">max gap:</span>
-        <span className="stat-value"> {stats.max_gap.toFixed(3)} </span>
-      </div>
-      <div className="stat-item">
-        <span className="stat-title">stdv gap:</span>
-        <span className="stat-value"> {stats.std_dev_gap.toFixed(3)} </span>
-      </div>
+  const datesObj = {};
+
+  (stats?.dates || []).forEach(d => {
+    const date = new Date(d)
+    datesObj[toISODate(date)] = 1
+  });
 
 
+  return isOpen && <>
+    <div style={{
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: 900,
+      background: "#000",
+      border: "1px solid #33ff33",
+      zIndex: 12,
+      color: "#33ff33",
+      padding: "1rem",
+      borderRadius: "8px"
+    }}>
+      <ActivityHeatmap data={datesObj} />
+      <div className="stats-container" style={{marginTop: 12}}>
+        <div className="stat-item">
+          <span className="stat-title">Total count:</span>
+          <span className="stat-value"> {stats.total_count} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">first occurnace:</span>
+          <span className="stat-value"> {formatDateTime(new Date(stats.first_date))} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">last occurnace:</span>
+          <span className="stat-value"> {formatDateTime(new Date(stats.last_date))} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">average gap:</span>
+          <span className="stat-value"> {stats.average_gap.toFixed(3)} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">median gap:</span>
+          <span className="stat-value"> {stats.median_gap.toFixed(3)} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">min gap:</span>
+          <span className="stat-value"> {stats.min_gap.toFixed(3)} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">max gap:</span>
+          <span className="stat-value"> {stats.max_gap.toFixed(3)} </span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-title">stdv gap:</span>
+          <span className="stat-value"> {stats.std_dev_gap.toFixed(3)} </span>
+        </div>
+      </div>
 
-        
-      </div>
-      <div style={{
-        width: "100vw",
-        height: "100vh",
-        background: "#000",
-        opacity: .9,
-        top: 0,
-        left: 0,
-        position: "fixed",
-        zIndex: 11
-      }}  
-      onClick={() => closeModal()}>
-      </div>
+    </div>
+    <div style={{
+      width: "100vw",
+      height: "100vh",
+      background: "#000",
+      opacity: .9,
+      top: 0,
+      left: 0,
+      position: "fixed",
+      zIndex: 11
+    }}  
+    onClick={() => closeModal()}>
+    </div>
     </>
+  
 }
 
 export default () => {

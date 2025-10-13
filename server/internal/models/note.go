@@ -54,7 +54,8 @@ type EntryDto struct {
 
 type QueryStats struct {
 	// Core counts
-	TotalCount int `json:"total_count"`
+	Dates      []time.Time `json:"dates"`
+	TotalCount int         `json:"total_count"`
 
 	// Temporal boundaries
 	FirstDate time.Time `json:"first_date"`

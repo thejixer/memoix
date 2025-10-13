@@ -112,6 +112,7 @@ func (s *NoteService) GetQueryStats(ctx context.Context, query string, userID ui
 	}
 
 	return &models.QueryStats{
+		Dates:      dates,
 		TotalCount: len(dates),
 		FirstDate:  dates[0],
 		LastDate:   dates[len(dates)-1],

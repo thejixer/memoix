@@ -27,8 +27,14 @@ export function formatDate(dateString) {
   }
 }
 
+export function toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function formatDateTime(date) {
-  console.log(date)
   if (!(date instanceof Date) || isNaN(date.getTime())) {
     return "invalid date"
   }

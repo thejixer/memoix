@@ -20,17 +20,15 @@ export default () => {
   }, [])
 
   return (
-    <div>
-      <Link
-        to="/person/add"
-        className="g-btn"
-        style={{ display: "inline-block", color: "#33ff33", textDecoration: "none", margin: 8 }}
-      >
-        Add Person
-      </Link>
-      <div style={{ display: "flex", textAlign: "center", textDecoration: "none", flexWrap: "wrap", paddingBottom: 20 }} >
-        {persons.map(p => <ProfileCard key={p.id} name={p.name} id={p.id} avatar={p.avatar ? `${Domain}/${p.avatar}` : "/logo.webp"} />)}
-      </div>
+    <div style={{ display: "flex", textAlign: "center", textDecoration: "none", flexWrap: "wrap", paddingBottom: 20 }} >
+      {persons.map(p =>
+        <ProfileCard
+          key={p.id}
+          name={p.name}
+          id={p.id}
+          avatar={p.avatar ? `${Domain}/${p.avatar}` : "/logo.webp"} 
+        />
+      )}
     </div>
   )
 }
