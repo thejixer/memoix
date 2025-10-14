@@ -350,7 +350,7 @@ const fetchNotes = async () => {
         ))}
       </div>
 
-      <Notes notes={notes} />
+      <Notes notes={notes as any} />
     </div>
   );
 };

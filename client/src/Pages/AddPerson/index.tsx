@@ -2,8 +2,9 @@ import { useState } from "react"
 import httpClient from "../../libs/api/httpClient"
 import { useNavigate } from "react-router";
 import toastMaker from "../../libs/utils/custom-toast";
+import { Button } from "../../ui/primitives";
 
-export default () => {
+export default function AddPerson() {
   const navigate = useNavigate();
 
   const [name, setName] = useState("")
@@ -48,13 +49,14 @@ export default () => {
           style={{ padding: '4px 8px' }}
         />
         <br />
-        <button
+        <Button
+
           className="g-btn"
           style={{ padding: '4px 8px' }}
           onClick={() => submit()}
         >
           submit
-        </button>
+        </Button>
         <br />
         <br />
       </div>

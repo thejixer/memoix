@@ -84,7 +84,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, CloseMo
 };
 
 interface NotesProps {
-  notes: Partial<NoteType>[];
+  notes: NoteType[];
 }
 
 const Notes: React.FC<NotesProps> = ({ notes }) => {
