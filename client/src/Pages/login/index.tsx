@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router"
+import { useMutation } from "@tanstack/react-query"
 import toast from "react-hot-toast"
 import httpClient from "../../libs/api/httpClient"
 import toastMaker from '../../libs/utils/custom-toast'
@@ -12,44 +13,73 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("")
   const [otp, setOTP] = useState("")
 
-  const submitStepOne = async () => {
-    const resp = await httpClient.post("/auth/request-otp", {
-      "phone_number": phoneNumber
+  const requestOtpMutation = useMutation({
+      mutationFn:    (phone: string) =>
+      httpClient.post("/auth/request-otp", {
+        phone_number: phone,
+      }),
+      onSuccess: (resp) => {
+        if (resp?.status !== 200) {
+          toastMaker.error("bad phone number")
+          return
+        }
+
+        setStep(2)
+        toastMaker.success("check your phone for otp")
+      },
+      onError: () => {
+        toastMaker.error("network error")
+      },
     })
 
-    if (resp.status !== 200) return toastMaker.error("bad phone number")
+  const verifyOtpMutation = useMutation({
+      mutationFn:     (payload: { phone: string; otp: string }) =>
+      httpClient.post("/auth/verify-otp", {
+        phone_number: payload.phone,
+        otp: payload.otp,
+      }),
+      onSuccess: (resp) => {
+        if (resp?.status === 400) {
+          toastMaker.error("please check your data")
+          return
+        }
+        if (resp?.status === 401) {
+          toastMaker.error("code mismatch")
+          return
+        }
+        if (resp?.status === 200) {
+          cookieClient.setCookie("token", resp.data.token, 24 * 30)
+          toastMaker.success("welcome")
+          navigate("/dashboard")
+          return
+        }
 
-    setStep(2)
-    toastMaker.success("check your phone for otp")
+        toastMaker.error("unexpected error")
+      },
+      onError: () => {
+        toastMaker.error("network error")
+      },
+    })
+
+  const submitStepOne = async () => {
+    await requestOtpMutation.mutateAsync(phoneNumber)
   }
 
   const submitStepTwo = async () => {
-    const resp = await httpClient.post("/auth/verify-otp", {
-      "phone_number": phoneNumber,
-      otp
-    })
-
-    if (resp.status === 400) return toastMaker.error("please check your data")
-    if (resp.status === 401) return toastMaker.error("code mismatch")
-    if (resp.status === 200) {
-      cookieClient.setCookie("token", resp.data.token, 24 * 30)
-      toastMaker.success("welcome")
-      navigate("/dashboard")
-    }
+    await verifyOtpMutation.mutateAsync({ phone: phoneNumber, otp })
   }
 
   // #todo should redirect to dashboard if it is already logged in
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 ">
-      <div className="flex flex-col gap-3 w-full max-w-mdrounded-xl shadow-lg p-2 border-[#33FF33] border-2">
-        <Typography variant="h1" className="text-center mx-auto " >
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full flex flex-col items-center gap-4 max-w-md rounded-xl shadow-lg p-2 border-2 border-[#33FF33]">
+        <Typography variant="h1" >
           Login
         </Typography>
 
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Typography variant={"body"} className="w-1/2">
+          <div className="flex items-center gap-4">
+            <Typography variant="body" className="w-1/2">
               Phone Number
             </Typography>
             <Input
@@ -62,16 +92,16 @@ export default function LoginPage() {
           </div>
 
           {step === 1 ? (
-            <div className="flex flex-col gap-4">
               <Button
+              className="w-full"
                 onClick={submitStepOne}
+                disabled={requestOtpMutation.isPending}
               >
                 <Typography as="span">Submit</Typography>
               </Button>
-            </div>
           ) : (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2">
+            <div className="w-full flex flex-col items-center">
+              <div className="flex items-center gap-4">
                 <Typography variant="body" className="w-1/2">
                   OTP
                 </Typography>
@@ -84,14 +114,15 @@ export default function LoginPage() {
               </div>
 
               <Button
+              className="w-full"
                 onClick={submitStepTwo}
+                disabled={verifyOtpMutation.isPending}
               >
                 <Typography as="span">Submit</Typography>
               </Button>
             </div>
           )}
         </div>
-      </div>
     </div>
   )
 }

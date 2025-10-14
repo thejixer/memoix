@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router"; // react-router
 import { Toaster } from "react-hot-toast";
 import App from "./App";
 import "./App.css"
+import ReactQueryProvider from "./libs/providers/ReactQuery";
 // Root element
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");
@@ -12,8 +13,10 @@ if (!rootElement) throw new Error("Root element not found");
 createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
-      <Toaster position="top-right" />
-      <App />
+      <ReactQueryProvider>
+        <Toaster position="top-right" />
+        <App />
+      </ReactQueryProvider>
     </BrowserRouter>
   </StrictMode>
 );
