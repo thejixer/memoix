@@ -1,16 +1,10 @@
 @import "tailwindcss";
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
   font-family: "Comic Sans MS", "Comic Sans", cursive;
-
 }
 
 html, body {
-  height: 97%;
-  margin: 0;
-  padding: 0;
   background-color: #000;
   background-attachment: fixed; /* Keeps it in place when scrolling */
   background-size: cover; /* Ensures it fills the whole screen */
