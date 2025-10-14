@@ -3,10 +3,10 @@ import Home from './Pages/home'
 import Login from './Pages/login'
 import Dashboard from "./Pages/dashboard";
 import Protector from "./Pages/protector";
-import Persons from "./Pages/Persons";
 import AddPerson from "./Pages/AddPerson";
 import Memories from "./Pages/Memories";
 import SinglePerson from "./Pages/SinglePerson";
+import PersonsList from "./Pages/Persons";
 
 function App() {
 
@@ -17,7 +17,7 @@ function App() {
 
       <Route element={<Protector />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/person" element={<Persons />} />
+        <Route path="/person" element={<PersonsList />} />
         <Route path="/person/:id" element={<SinglePerson />} />
         <Route path="/person/add" element={<AddPerson />} />
         <Route path="/memories" element={<Memories />} />
