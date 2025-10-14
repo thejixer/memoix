@@ -50,8 +50,6 @@ export default function AddPerson() {
         />
         <br />
         <Button
-
-          className="g-btn"
           style={{ padding: '4px 8px' }}
           onClick={() => submit()}
         >

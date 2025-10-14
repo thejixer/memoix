@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import toastMaker from '../../libs/utils/custom-toast'
 import cookieClient from "../../libs/utils/cookie";
+import { Button } from "../../ui/primitives";
 
 export default () => {
   const navigate = useNavigate();
@@ -74,12 +75,11 @@ export default () => {
           {
             step == 1 ?
             <>
-              <button
-                className="g-btn"
+              <Button
                 onClick={() => submitStepOne()}
               >
                 submit
-              </button>  
+              </Button>  
               <br />
             </>
               :
@@ -96,12 +96,11 @@ export default () => {
               </div>
               <br />
 
-                <button
-                  className="g-btn"
+                <Button
                   onClick={() => submitStepTwo()}
                 >
                   submit
-                </button>
+                </Button>
               </>
           }
 
