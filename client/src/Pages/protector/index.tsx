@@ -3,6 +3,7 @@ import { Outlet, useNavigate, NavLink } from "react-router"
 import { useState, useEffect } from "react";
 import httpClient from "../../libs/api/httpClient";
 import cookieClient from "../../libs/utils/cookie";
+import { Button } from "../../ui/primitives";
 
 
 const Protector = () => {
@@ -38,13 +39,13 @@ const Protector = () => {
           <NavLink style={({ isActive }) => ({color: isActive ? "#0066FF" : "#33FF33", textDecoration: "none"})} to="/person" > Persons </NavLink>
         </div>
 
-        <button
+        <Button
           onClick={() => {
             cookieClient.delCookie("token")
             navigate("/")
           }}
           className="g-btn"
-        > logout </button>
+        > logout </Button>
       </nav>
       <Outlet context={user} />
     </div>

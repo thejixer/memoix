@@ -4,7 +4,7 @@ import httpClient from "../../libs/api/httpClient";
 
 
 
-export default () => {
+export default function RecentExpenses ()  {
 
   useEffect(() => {
     (async () => {

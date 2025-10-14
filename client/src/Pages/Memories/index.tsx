@@ -6,6 +6,7 @@ import ActivityHeatmap from "../../ui/components/heatmap";
 import Notes from "../../ui/components/notes";
 import { formatDateTime, toISODate } from "../../libs/utils/date";
 import colors from "../../libs/utils/colors";
+import { Button } from "../../ui/primitives";
 
 
 interface CreateModalProps {
@@ -298,13 +299,13 @@ const fetchNotes = async () => {
             if (e.key === "Enter") fetchAll(query);
           }}
         />
-        <button className="g-btn" style={{ margin: 1 }} onClick={() => fetchAll(query)}>
+        <Button  style={{ margin: 1 }} onClick={() => fetchAll(query)}>
           search
-        </button>
-        <button
+        </Button>
+        <Button
           disabled={!query}
           style={{ cursor: !query ? "no-drop" : "pointer", margin: 1 }}
-          className="g-btn"
+          
           onClick={() => {
             if (!query) return;
             setQuery("");
@@ -312,7 +313,7 @@ const fetchNotes = async () => {
           }}
         >
           clear filters
-        </button>
+        </Button>
       </div>
 
       <div style={{ padding: "0 8px" }}>

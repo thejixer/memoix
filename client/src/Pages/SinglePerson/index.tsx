@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import colors from '../../libs/utils/colors';
 import toastMaker from '../../libs/utils/custom-toast';
 import Notes from '../../ui/components/notes';
+import { Button } from '../../ui/primitives';
 
 // --- Types ---
 interface Person {
@@ -85,8 +86,8 @@ const UploadFileModal: React.FC<UploadFileModalProps> = ({ isOpen, closeModal, p
           />
           <label htmlFor="fileInput" className='g-btn' style={{ display: "inline-block" }}>Choose File</label>
           <span className='cg'> {fileInputMsg} </span>
-          <button className='g-btn' onClick={handleUpload}>Upload</button>
-          <button className='g-btn' style={{ padding: "4px 8px" }} onClick={closeModal}>Close</button>
+          <Button onClick={handleUpload}>Upload</Button>
+          <Button style={{ padding: "4px 8px" }} onClick={closeModal}>Close</Button>
         </div>
       </div>
 

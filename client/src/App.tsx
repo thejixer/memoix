@@ -1,12 +1,12 @@
 import { Routes, Route } from "react-router";
 import Home from './Pages/home'
 import Login from './Pages/login'
-import Dashboard from "./Pages/dashboard";
 import Protector from "./Pages/protector";
 import Memories from "./Pages/Memories";
 import SinglePerson from "./Pages/SinglePerson";
 import PersonsList from "./Pages/Persons";
 import AddPerson from "./Pages/AddPerson";
+import Dashboard from "./Pages/dashboard";
 
 function App() {
 

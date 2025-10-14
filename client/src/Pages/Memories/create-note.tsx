@@ -5,6 +5,7 @@ import toastMaker from "../../libs/utils/custom-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import MentionTextarea from "./text-area";
+import { Button } from "../../ui/primitives";
 
 export default function CreateNote() {
   const navigate = useNavigate();
@@ -61,15 +62,16 @@ export default function CreateNote() {
         onChange={(date: Date | null) => date && setSelectedDate(date)}
         calendarClassName="evil-terminal-calendar"
         dayClassName={() => "evil-terminal-day"}
-        customInput={<button className="g-btn">{formatDateTime(selectedDate)}</button>}
+        customInput={<Button>{formatDateTime(selectedDate)}</Button>}
         withPortal
         showTimeSelect
         timeIntervals={5}
       />
 
-      <button className="g-btn" onClick={submit}>
+      <Button
+       onClick={submit}>
         submit
-      </button>
+      </Button>
     </div>
   );
 }
