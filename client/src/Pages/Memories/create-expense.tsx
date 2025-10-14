@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import httpClient from "../../libs/api/httpClient";
 import toastMaker from "../../libs/utils/custom-toast";
 import { Button, Input } from "../../ui/primitives";
 import MentionTextarea from "./text-area";
+import { useMutation } from "@tanstack/react-query";
+import { post } from "../../libs/api/requestHandler";
+import { Routes } from "../../libs/api/routes";
 
-// ✅ Validate amount string
 function validateAmount(amount: string | number) {
   return /^\d{1,15}(\.\d{1,2})?$/.test(String(amount));
 }
@@ -19,6 +20,21 @@ export default function CreateExpense() {
   const [amount, setAmount] = useState<string | number>("");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  const createExpenseMutation = useMutation({
+    mutationFn: (body: TServices.CreateExpenseBody) =>
+      post<TServices.CreateExpenseBody, any>(Routes.EXPENSE_CREATE, body),
+    onSuccess: (resp) => {
+      if (resp.status === 200) {
+        toastMaker.success("finance created");
+        return navigate(0);
+      }
+      toastMaker.error("something went wrong");
+    },
+    onError: () => {
+      toastMaker.error("network error");
+    },
+  });
+
   const submit = async () => {
     if (!(selectedDate instanceof Date) || isNaN(selectedDate.getTime())) {
       return toastMaker.error("time is not valid");
@@ -27,18 +43,11 @@ export default function CreateExpense() {
     if (!content) return toastMaker.error("enter content please");
     if (!amount || !validateAmount(amount)) return toastMaker.error("please enter a valid amount");
 
-    const resp = await httpClient.post("/expense/", {
+    await createExpenseMutation.mutateAsync({
       content,
       amount: String(amount),
       date: selectedDate.toISOString(),
     });
-
-    if (resp.status === 200) {
-      toastMaker.success("finance created");
-      return navigate(0);
-    }
-
-    toastMaker.error("something went wrong");
   };
 
   function formatDateTime(date: Date): string {
@@ -83,7 +92,7 @@ export default function CreateExpense() {
         showTimeSelect
         timeIntervals={5}
       />
-      <Button  onClick={submit}>
+      <Button onClick={submit}>
         Submit
       </Button>
     </div>

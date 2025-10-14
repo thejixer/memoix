@@ -1,28 +1,37 @@
 import { useState } from "react"
-import httpClient from "../../libs/api/httpClient"
 import { useNavigate } from "react-router";
 import toastMaker from "../../libs/utils/custom-toast";
 import { Button, Input } from "../../ui/primitives";
+import { post } from "../../libs/api/requestHandler"
+import { Routes } from "../../libs/api/routes"
+import { useMutation } from "@tanstack/react-query"
 
 export default function AddPerson() {
   const navigate = useNavigate();
 
   const [name, setName] = useState("")
 
+  const createPersonMutation = useMutation({
+    mutationFn: (body: TServices.CreatePersonBody) =>
+      post<TServices.CreatePersonBody, any>(Routes.PERSON_CREATE, body),
+    onSuccess: (resp) => {
+      if (resp.status == 200) {
+        toastMaker.success("new person created")
+        return navigate("/person")
+      } else if (resp.status == 400) {
+        return toastMaker.error("this person already exists")
+      }
+    },
+    onError: () => {
+      toastMaker.error("network error")
+    },
+  })
+
   const submit = async () => {
 
     if (!name) return toastMaker.error("name is required")
 
-    const resp = await httpClient.post("/person/", {
-      name
-    })
-
-    if (resp.status == 200) {
-      toastMaker.success("new person created")
-      return navigate("/person")
-    } else if (resp.status == 400) {
-      return toastMaker.error("this person already exists")
-    }
+    await createPersonMutation.mutateAsync({ name })
 
   }
 
