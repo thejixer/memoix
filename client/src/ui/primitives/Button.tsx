@@ -1,32 +1,47 @@
-import { cva, type VariantProps } from "class-variance-authority";
-import React from "react";
+import React, { HTMLAttributes } from "react";
+import { cva, VariantProps } from "class-variance-authority";
 
 const buttonStyles = cva(
-  "m-2 px-2 py-1 border cursor-pointer font-medium transition-colors",
+  "inline-flex items-center justify-center select-none transition-colors border cursor-pointer",
   {
     variants: {
-      intent: {
-        default: "text-green-400 bg-black border-green-400 hover:bg-green-400 hover:text-black",
-        primary: "text-white bg-green-500 border-green-500 hover:bg-green-600",
-        secondary: "text-black bg-white border-gray-400 hover:bg-gray-100",
-      },
       size: {
-        sm: "text-sm px-2 py-1",
-        md: "text-base px-4 py-2",
-        lg: "text-lg px-6 py-3",
+        default: "m-2 px-2 py-1",
+      },
+      variant: {
+        default:
+          "text-[#33FF33] bg-black border-[#33FF33] hover:bg-[#33FF33] hover:text-black",
+      },
+      disabled: {
+        true: "opacity-50 cursor-not-allowed ",
       },
     },
     defaultVariants: {
-      intent: "default",
-      size: "md",
+      size: "default",
+      variant: "default",
+      disabled: false,
     },
   }
 );
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonStyles> {}
+type ButtonPrimitiveProps = HTMLAttributes<HTMLButtonElement | HTMLLabelElement> &
+  VariantProps<typeof buttonStyles> & {
+    as?: "button" | "label";
+  };
 
-export const Button: React.FC<ButtonProps> = ({ intent, size, className, ...props }) => {
-  return <button className={buttonStyles({ intent, size, className })} {...props} />;
+export const Button: React.FC<ButtonPrimitiveProps> = ({
+  as: Component = "button",
+  className,
+  size,
+  variant,
+  disabled,
+  ...props
+}) => {
+  return (
+    <Component
+      className={buttonStyles({ size, variant, disabled }) + (className ? ` ${className}` : "")}
+      style={{ padding: "4px 8px" }} 
+      {...props}
+    />
+  );
 };

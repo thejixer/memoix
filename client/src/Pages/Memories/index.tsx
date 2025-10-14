@@ -6,7 +6,7 @@ import ActivityHeatmap from "../../ui/components/heatmap";
 import Notes from "../../ui/components/notes";
 import { formatDateTime, toISODate } from "../../libs/utils/date";
 import colors from "../../libs/utils/colors";
-import { Button } from "../../ui/primitives";
+import { Button, Input } from "../../ui/primitives";
 
 
 interface CreateModalProps {
@@ -274,11 +274,11 @@ const fetchNotes = async () => {
       <CreateModal isOpen={isModalOpen} closeModal={() => setModalOpen(false)} />
       <StatsModal isOpen={isStatsModalOpen} closeModal={() => setStatsModalOpen(false)} stats={stats} />
 
-      <div className="g-btn" style={{ position: "absolute", top: 8, left: 8 }} onClick={() => setModalOpen(true)}>
+      <Button  style={{ position: "absolute", top: 8, left: 8 }} onClick={() => setModalOpen(true)}>
         create
-      </div>
-      <div
-        className="g-btn"
+      </Button>
+      <Button
+        
         style={{ position: "absolute", top: 8, right: 8, cursor: !stats ? "no-drop" : "pointer" }}
         onClick={() => {
           if (!stats) return;
@@ -286,11 +286,10 @@ const fetchNotes = async () => {
         }}
       >
         stats
-      </div>
+      </Button>
 
       <div style={{ display: "flex", justifyContent: "center" }}>
-        <input
-          className="g-inp"
+        <Input
           type="text"
           value={query}
           style={{ margin: 1 }}

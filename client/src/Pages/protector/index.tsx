@@ -44,7 +44,6 @@ const Protector = () => {
             cookieClient.delCookie("token")
             navigate("/")
           }}
-          className="g-btn"
         > logout </Button>
       </nav>
       <Outlet context={user} />

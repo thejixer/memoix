@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 import toastMaker from '../../libs/utils/custom-toast'
 import cookieClient from "../../libs/utils/cookie";
-import { Button } from "../../ui/primitives";
+import { Button, Input } from "../../ui/primitives";
 
 export default () => {
   const navigate = useNavigate();
@@ -62,9 +62,8 @@ export default () => {
 
         <div style={{display: "flex", alignItems: "center"}} >
           <label style={{flex: .35}} >phonenumber </label>
-          <input
+          <Input
             style={{flex: .65}}
-            className="g-inp"
             type="tel"
             value={phoneNumber}
             readOnly={step == 2}
@@ -86,10 +85,9 @@ export default () => {
               <>
                 <div style={{ display: "flex", alignItems: "center" }} >
                   <label style={{flex: .35}} >otp </label>
-                  <input
+                  <Input
                     style={{flex: .65}}
                     type="text"
-                    className="g-inp"
                     value={otp}
                     onChange={({ target: { value } }) => setOTP(value)}
                   />

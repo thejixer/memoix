@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import colors from '../../libs/utils/colors';
 import toastMaker from '../../libs/utils/custom-toast';
 import Notes from '../../ui/components/notes';
-import { Button } from '../../ui/primitives';
+import { Button, Input } from '../../ui/primitives';
 
 // --- Types ---
 interface Person {
@@ -84,7 +84,7 @@ const UploadFileModal: React.FC<UploadFileModalProps> = ({ isOpen, closeModal, p
               setFile(f);
             }}
           />
-          <label htmlFor="fileInput" className='g-btn' style={{ display: "inline-block" }}>Choose File</label>
+          <label htmlFor="fileInput" style={{ display: "inline-block" }}>Choose File</label>
           <span className='cg'> {fileInputMsg} </span>
           <Button onClick={handleUpload}>Upload</Button>
           <Button style={{ padding: "4px 8px" }} onClick={closeModal}>Close</Button>
@@ -145,8 +145,8 @@ const UpdateNameModal: React.FC<UpdateNameModalProps> = ({ isOpen, closeModal, p
         zIndex: 12
       }}>
         <span className='cg'>Name</span>
-        <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} className="g-inp" />
-        <button className="g-btn" onClick={updateName}>Submit</button>
+        <Input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} />
+        <Button onClick={updateName}>Submit</Button>
       </div>
       <div style={{
         width: "100vw",
@@ -205,8 +205,8 @@ const UpdatePhoneNumberModal: React.FC<UpdatePhoneModalProps> = ({ isOpen, close
         zIndex: 12
       }}>
         <span className='cg'>Phone Number</span>
-        <input type="text" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} className="g-inp" />
-        <button className="g-btn" onClick={updatePhoneNumber}>Submit</button>
+        <Input type="text" value={phoneInput} onChange={e => setPhoneInput(e.target.value)}  />
+        <Button onClick={updatePhoneNumber}>Submit</Button>
       </div>
       <div style={{
         width: "100vw",
@@ -278,8 +278,8 @@ export default function SinglePerson() {
         <div style={{ display: "flex", alignItems: "start" }}>
           <div style={{ padding: 8 }}>
             <div>
-              <button className="g-btn" onClick={() => setUpdateNameModalOpen(true)}>Update Name</button>
-              <button className="g-btn" onClick={() => setUpdatePhoneModalOpen(true)}>Update Phone</button>
+              <Button onClick={() => setUpdateNameModalOpen(true)}>Update Name</Button>
+              <Button onClick={() => setUpdatePhoneModalOpen(true)}>Update Phone</Button>
             </div>
             <div className='cg' style={{ paddingLeft: 8 }}>
               Phone Number: {person.phone_number ?? "Not Specified"}

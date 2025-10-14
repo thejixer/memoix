@@ -4,8 +4,8 @@ import httpClient from "../../libs/api/httpClient";
 import toastMaker from "../../libs/utils/custom-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import MentionTextarea from "./text-area";
 import { Button } from "../../ui/primitives";
+import MentionTextarea from "./text-area";
 
 export default function CreateNote() {
   const navigate = useNavigate();

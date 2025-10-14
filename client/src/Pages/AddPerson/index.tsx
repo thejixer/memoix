@@ -2,7 +2,7 @@ import { useState } from "react"
 import httpClient from "../../libs/api/httpClient"
 import { useNavigate } from "react-router";
 import toastMaker from "../../libs/utils/custom-toast";
-import { Button } from "../../ui/primitives";
+import { Button, Input } from "../../ui/primitives";
 
 export default function AddPerson() {
   const navigate = useNavigate();
@@ -41,8 +41,7 @@ export default function AddPerson() {
         <h2>Add Person</h2>
 
         <label> name </label>
-        <input
-          className="g-inp"
+        <Input
           type="tel"
           value={name}
           onChange={({ target: { value } }) => setName(value)}

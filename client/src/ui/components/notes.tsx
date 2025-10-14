@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import toastMaker from "../../libs/utils/custom-toast";
 import httpClient from "../../libs/api/httpClient";
 import { formatDate } from "../../libs/utils/date";
+import { Button, Input } from "../primitives";
 
 interface NoteType {
   id: string;
@@ -54,9 +55,8 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, CloseMo
         }}
       >
         Are you Seriously Sure You Want to Delete This ? Write "delete" in the input below
-        <input className="g-inp" value={textInput} onChange={(e) => setTextInput(e.target.value)} />
-        <button
-          className="g-btn"
+        <Input value={textInput} onChange={(e) => setTextInput(e.target.value)} />
+        <Button
           style={{ cursor: textInput === "delete" ? "pointer" : "no-drop" }}
           onClick={() => {
             if (textInput !== "delete") return;
@@ -64,7 +64,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, CloseMo
           }}
         >
           Delete
-        </button>
+        </Button>
       </div>
       <div
         style={{
@@ -128,16 +128,15 @@ const Notes: React.FC<NotesProps> = ({ notes }) => {
                 height: 50,
               }}
             >
-              <button
-                className="g-btn"
+              <Button
                 style={{ cursor: currentNote.type === "note" ? "pointer" : "no-drop" }}
                 onClick={() => setCDMOpen(true)}
               >
                 delete
-              </button>
-              <button className="g-btn" onClick={closeModal}>
+              </Button>
+              <Button onClick={closeModal}>
                 close
-              </button>
+              </Button>
             </div>
             <div
               style={{ padding: "8px 16px", overflowY: "auto", height: 340 }}

@@ -4,8 +4,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import httpClient from "../../libs/api/httpClient";
 import toastMaker from "../../libs/utils/custom-toast";
+import { Button, Input } from "../../ui/primitives";
 import MentionTextarea from "./text-area";
-import { Button } from "../../ui/primitives";
 
 // ✅ Validate amount string
 function validateAmount(amount: string | number) {
@@ -59,9 +59,8 @@ export default function CreateExpense() {
   return (
     <div style={{ padding: 8 }}>
       <span className="cg">Amount</span>
-      <input
+      <Input
         type="text"
-        className="g-inp"
         placeholder="in tomans"
         value={amount !== "" ? new Intl.NumberFormat("en-US").format(Number(amount)) : ""}
         onChange={(e) => {
