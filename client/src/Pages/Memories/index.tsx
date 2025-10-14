@@ -235,7 +235,7 @@ const HomePage: React.FC = () => {
 
   
 const fetchNotes = async () => {
-  const resp = await httpClient.get("/note");
+  const resp = await httpClient.get("/note/?query=")
   if (resp.status === 200 && resp.data) {
     const mapped: NoteType[] = resp.data.map((n: any) => ({
       id: n.id,
