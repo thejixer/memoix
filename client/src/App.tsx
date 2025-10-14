@@ -5,8 +5,8 @@ import Dashboard from "./Pages/dashboard";
 import Protector from "./Pages/protector";
 import Persons from "./Pages/Persons";
 import AddPerson from "./Pages/AddPerson";
-import SinglePerson from "./Pages/SinglePerson";
 import Memories from "./Pages/Memories";
+import SinglePerson from "./Pages/SinglePerson";
 
 function App() {
 

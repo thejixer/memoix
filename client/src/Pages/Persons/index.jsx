@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import httpClient from "../../utils/http";
+import httpClient from "../../libs/api/httpClient";
 import ProfileCard from "./card";
 
 

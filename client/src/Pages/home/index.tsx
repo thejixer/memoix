@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import cookieClient from "../../utils/cookie";
+import cookieClient from "../../libs/utils/cookie";
 
 export default function Home() {
 

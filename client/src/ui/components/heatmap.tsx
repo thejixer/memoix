@@ -1,74 +1,72 @@
-import React, { useMemo } from "react";
-import { toISODate } from "../utils/date";
-// Props:
-// - data: object where keys are `YYYY-MM-DD` and value is truthy if active that day (or a number)
-// - squareSize (optional): size of each square in px, default 12
-// - gap (optional): gap between squares in px, default 4
-// Example data: { '2025-01-01': true, '2025-02-03': 1 }
-function cloneDate(d) {
+import React, { useMemo, CSSProperties } from "react";
+
+export interface ActivityHeatmapProps {
+  data?: Record<string, boolean | number>; // keys are 'YYYY-MM-DD'
+  squareSize?: number;
+  gap?: number;
+}
+
+function cloneDate(d: Date): Date {
   return new Date(d.getTime());
 }
 
-export default function ActivityHeatmap({ data = {}, squareSize = 12, gap = 4 }) {
-  // Build the grid days similar to GitHub's layout: columns = weeks, rows = weekdays (Sun..Sat)
-  const { weeks, startDate, endDate } = useMemo(() => {
+function toISODate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+export default function ActivityHeatmap({
+  data = {},
+  squareSize = 12,
+  gap = 4,
+}: ActivityHeatmapProps) {
+  const { weeks } = useMemo(() => {
     const end = new Date();
-    // last 365 days (including today)
     const daysBack = 364;
     const tentativeStart = new Date();
     tentativeStart.setDate(end.getDate() - daysBack);
 
-    // Align start to previous Sunday so we start full weeks like GitHub
     const start = cloneDate(tentativeStart);
-    const dayOfWeek = start.getDay(); // 0 = Sunday
+    const dayOfWeek = start.getDay();
     start.setDate(start.getDate() - dayOfWeek);
 
-    const weeks = [];
+    const weeks: Date[][] = [];
     let cursor = cloneDate(start);
+
     while (cursor <= end) {
-      // build one week (Sunday..Saturday)
-      const week = [];
+      const week: Date[] = [];
       for (let i = 0; i < 7; i++) {
-        week.push(new Date(cursor));
+        week.push(cloneDate(cursor));
         cursor.setDate(cursor.getDate() + 1);
       }
       weeks.push(week);
     }
 
-    return { weeks, startDate: start, endDate: end };
+    return { weeks };
   }, []);
 
   const activeSet = useMemo(() => {
-    // normalize keys to ISO date strings
-    const s = new Set();
+    const s = new Set<string>();
     for (const k in data) {
-      try {
-        // allow either Date objects or strings
-        if (!data[k]) continue; // treat falsy as inactive
-        const iso = String(k);
-        s.add(iso);
-      } catch (e) {
-        // ignore
-      }
+      if (!data[k]) continue;
+      s.add(k);
     }
     return s;
   }, [data]);
 
-  // Inline styles that depend on props
-  const containerStyle = {
+  const containerStyle: CSSProperties = {
     display: "flex",
     gap: `${gap}px`,
     alignItems: "flex-start",
     userSelect: "none",
   };
 
-  const weekStyle = {
+  const weekStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
     gap: `${gap}px`,
   };
 
-  const dayBaseStyle = {
+  const dayBaseStyle: CSSProperties = {
     width: `${squareSize}px`,
     height: `${squareSize}px`,
     borderRadius: "3px",
@@ -79,7 +77,6 @@ export default function ActivityHeatmap({ data = {}, squareSize = 12, gap = 4 })
 
   return (
     <div>
-      {/* Small injected styles for tooltip behaviour and hover */}
       <style>{`
         .ah-day:hover { transform: scale(1.15); z-index: 2; }
         .ah-tooltip { pointer-events: none; }
@@ -92,9 +89,9 @@ export default function ActivityHeatmap({ data = {}, squareSize = 12, gap = 4 })
               const iso = toISODate(d);
               const isActive = activeSet.has(iso);
               const isInRange = d <= new Date();
-              const title = `${iso}`;
+              const title = iso;
 
-              const dayStyle = {
+              const dayStyle: CSSProperties = {
                 ...dayBaseStyle,
                 background: isActive ? "#33ff33" : "#ebedf0",
                 boxShadow: isActive ? "0 0 0 1px rgba(0,0,0,0.06) inset" : "none",
@@ -104,7 +101,7 @@ export default function ActivityHeatmap({ data = {}, squareSize = 12, gap = 4 })
               return (
                 <div
                   key={di}
-                  className={`ah-day`}
+                  className="ah-day"
                   title={title}
                   style={dayStyle}
                   aria-label={title}

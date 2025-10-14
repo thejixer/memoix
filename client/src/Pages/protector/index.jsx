@@ -1,8 +1,8 @@
 import { Outlet, useNavigate, NavLink } from "react-router"
 
 import { useState, useEffect } from "react";
-import httpClient from "../../utils/http";
-import cookieClient from "../../utils/cookie";
+import httpClient from "../../libs/api/httpClient";
+import cookieClient from "../../libs/utils/cookie";
 
 
 const Protector = () => {

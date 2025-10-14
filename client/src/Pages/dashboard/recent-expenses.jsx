@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import httpClient from "../../utils/http";
+import httpClient from "../../libs/api/httpClient";
 
 
 

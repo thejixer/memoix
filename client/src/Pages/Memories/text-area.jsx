@@ -1,5 +1,5 @@
 import { useState, useRef  } from "react";
-import httpClient from "../../utils/http";
+import httpClient from "../../libs/api/httpClient";
 import getCaretCoordinates from "textarea-caret";
 
 export default function MentionTextarea({ value, setValue }) {
