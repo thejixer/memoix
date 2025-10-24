@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"memoix-server/internal/adapters"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
@@ -16,13 +17,13 @@ import (
 
 type INoteService interface {
 	Create(ctx context.Context, note string, date time.Time, userID uint64) (*models.NoteEntity, error)
-	GetTopTags(ctx context.Context, query string, userID uint64) ([]*models.TagUsageDto, error)
-	GetTopMentions(ctx context.Context, query string, userID uint64) ([]*models.MentionUsageDto, error)
+	GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error)
+	GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error)
 	QueryTags(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.TagDto, error)
 	QueryPlaces(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.PlaceDto, error)
-	GetNotes(ctx context.Context, query string, userID uint64) ([]*models.EntryEntity, error)
+	GetNotes(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error)
 	DeleteNote(ctx context.Context, noteID, userID uint64) error
-	GetQueryStats(ctx context.Context, query string, userID uint64) (*models.QueryStats, error)
+	GetQueryStats(ctx context.Context, query string, since, until *time.Time, userID uint64) (*models.QueryStats, error)
 }
 
 func (h *Handler) HandleCreateNote(c echo.Context) error {
@@ -49,20 +50,23 @@ func (h *Handler) HandleCreateNote(c echo.Context) error {
 
 func (h *Handler) HandleGetTopTags(c echo.Context) error {
 	query := c.QueryParam("query")
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	tags, err := h.Service.NoteService().GetTopTags(ctx, query, requester.ID)
+	tags, err := h.Service.NoteService().GetTopTags(ctx, query, since, until, requester.ID)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}
 	return c.JSON(http.StatusOK, tags)
 }
+
 func (h *Handler) HandleQueryTags(c echo.Context) error {
 	t := c.QueryParam("text")
-
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
@@ -80,7 +84,7 @@ func (h *Handler) HandleQueryTags(c echo.Context) error {
 	return c.JSON(http.StatusOK, tags)
 }
 func (h *Handler) HandleQueryPlaces(c echo.Context) error {
-	t := c.QueryParam("text")
+	query := c.QueryParam("query")
 
 	requester, err := GetRequester(c, h)
 	if err != nil {
@@ -91,7 +95,7 @@ func (h *Handler) HandleQueryPlaces(c echo.Context) error {
 	pageStr := c.QueryParam("page")
 
 	limit, offset := utils.ParsePagination(limitStr, pageStr)
-	places, err := h.Service.NoteService().QueryPlaces(ctx, requester.ID, t, limit, offset)
+	places, err := h.Service.NoteService().QueryPlaces(ctx, requester.ID, query, limit, offset)
 	if err != nil {
 		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
 	}
@@ -100,12 +104,15 @@ func (h *Handler) HandleQueryPlaces(c echo.Context) error {
 
 func (h *Handler) HandleGetTopMentions(c echo.Context) error {
 	query := c.QueryParam("query")
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	mentions, err := h.Service.NoteService().GetTopMentions(ctx, query, requester.ID)
+	mentions, err := h.Service.NoteService().GetTopMentions(ctx, query, since, until, requester.ID)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}
@@ -113,12 +120,16 @@ func (h *Handler) HandleGetTopMentions(c echo.Context) error {
 }
 func (h *Handler) HandleGetNotes(c echo.Context) error {
 	query := c.QueryParam("query")
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	notes, err := h.Service.NoteService().GetNotes(ctx, query, requester.ID)
+	fmt.Println("attempting to fetch notes since : ", since)
+	notes, err := h.Service.NoteService().GetNotes(ctx, query, since, until, requester.ID)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}
@@ -154,13 +165,16 @@ func (h *Handler) HandleDeleteNote(c echo.Context) error {
 
 func (h *Handler) HandleGetQueryStatistics(c echo.Context) error {
 	query := c.QueryParam("query")
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
 
-	stats, err := h.Service.NoteService().GetQueryStats(ctx, query, requester.ID)
+	stats, err := h.Service.NoteService().GetQueryStats(ctx, query, since, until, requester.ID)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}

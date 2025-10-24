@@ -172,7 +172,7 @@ func (r *NoteRepo) Create(ctx context.Context, content string, date time.Time, t
 	return NewNote, nil
 }
 
-func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.TagUsageDto, error) {
+func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error) {
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
 		ExpenseConditions: []string{"e.user_id = $1"},
@@ -180,7 +180,7 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		Counter:           2,
 	}
 
-	// ✅ Apply all filters — unified strategy for hashtags, mentions, and places
+	// Apply all filters — unified strategy for hashtags, mentions, and places
 	filters := []FilterStrategy{
 		HashtagFilter{Hashtags: hashtags},
 		MentionFilter{Mentions: mentions},
@@ -191,7 +191,22 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		filter.ApplyFilter(&queryParts)
 	}
 
-	// Build WHERE conditions
+	// Apply since/until independently
+	if since != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date >= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date >= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *since)
+		queryParts.Counter++
+	}
+
+	if until != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date <= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date <= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *until)
+		queryParts.Counter++
+	}
+
+	// Build WHERE conditions for notes/expenses
 	conditionStringNotes := ""
 	conditionStringExpenses := ""
 	if len(queryParts.NoteConditions) > 0 {
@@ -201,7 +216,19 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
 	}
 
-	// ✅ Construct query with filtered notes + expenses
+	// Build exclusion for hashtags so they don't appear in top-tags
+	excludeTags := ""
+	if len(hashtags) > 0 {
+		placeholders := make([]string, len(hashtags))
+		for i, tag := range hashtags {
+			queryParts.Values = append(queryParts.Values, strings.ToLower(tag))
+			placeholders[i] = fmt.Sprintf("$%d", queryParts.Counter)
+			queryParts.Counter++
+		}
+		excludeTags = "WHERE LOWER(t.name) NOT IN (" + strings.Join(placeholders, ", ") + ")"
+	}
+
+	// Construct final query
 	query := fmt.Sprintf(`
 		WITH filtered_items AS (
 			SELECT n.id, 'note' AS type
@@ -241,12 +268,13 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 			WHERE et.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
 		) item_tags
 		JOIN tags t ON item_tags.tag_id = t.id
+		%s
 		GROUP BY t.id, t.name
 		ORDER BY usage_count DESC
 		LIMIT 10;
-	`, conditionStringNotes, conditionStringExpenses)
+	`, conditionStringNotes, conditionStringExpenses, excludeTags)
 
-	// ✅ Execute query
+	// Execute query
 	rows, err := r.db.QueryContext(ctx, query, queryParts.Values...)
 	if err != nil {
 		return nil, fmt.Errorf("error in GetTopTags: %w", err)
@@ -265,7 +293,9 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 	return tags, nil
 }
 
-func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.MentionUsageDto, error) {
+
+
+func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error) {
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
 		ExpenseConditions: []string{"e.user_id = $1"},
@@ -282,6 +312,21 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 
 	for _, filter := range filters {
 		filter.ApplyFilter(&queryParts)
+	}
+
+	// ✅ Apply since/until independently
+	if since != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date >= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date >= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *since)
+		queryParts.Counter++
+	}
+
+	if until != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date <= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date <= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *until)
+		queryParts.Counter++
 	}
 
 	// Build WHERE conditions
@@ -371,6 +416,7 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 
 	return mentionsList, nil
 }
+
 
 func (r *NoteRepo) QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error) {
 	query := `

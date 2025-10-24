@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"memoix-server/internal/models"
 	"strings"
+	"time"
 )
 
 type FilterStrategy interface {
@@ -90,7 +91,7 @@ func (p PlaceFilter) ApplyFilter(queryParts *QueryParts) {
 	}
 }
 
-func (r *NoteRepo) GetNotesAndExpenses(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.EntryEntity, error) {
+func (r *NoteRepo) GetNotesAndExpenses(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error) {
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
 		ExpenseConditions: []string{"e.user_id = $1"},
@@ -98,6 +99,7 @@ func (r *NoteRepo) GetNotesAndExpenses(ctx context.Context, hashtags, mentions, 
 		Counter:           2,
 	}
 
+	// Apply unified filter strategy for hashtags, mentions, and places
 	filters := []FilterStrategy{
 		HashtagFilter{Hashtags: hashtags},
 		MentionFilter{Mentions: mentions},
@@ -108,47 +110,65 @@ func (r *NoteRepo) GetNotesAndExpenses(ctx context.Context, hashtags, mentions, 
 		filter.ApplyFilter(&queryParts)
 	}
 
+	// ✅ Apply since/until independently
+	if since != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date >= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date >= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *since)
+		queryParts.Counter++
+	}
+
+	if until != nil {
+		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date <= $%d", queryParts.Counter))
+		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date <= $%d", queryParts.Counter))
+		queryParts.Values = append(queryParts.Values, *until)
+		queryParts.Counter++
+	}
+
+	// Build WHERE conditions
 	conditionStringNotes := ""
 	conditionStringExpenses := ""
 
 	if len(queryParts.ExpenseConditions) != len(queryParts.NoteConditions) {
-		return nil, errors.New("something went wrong")
+		return nil, errors.New("something went wrong: mismatch between note and expense conditions")
 	}
 
-	if len(queryParts.ExpenseConditions) > 0 && len(queryParts.NoteConditions) > 0 {
+	if len(queryParts.NoteConditions) > 0 && len(queryParts.ExpenseConditions) > 0 {
 		conditionStringNotes = "WHERE " + strings.Join(queryParts.NoteConditions, " AND ")
 		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
 	}
 
+	// ✅ Main query
 	query := fmt.Sprintf(`
 		WITH filtered_notes AS (
-				SELECT n.id, n.user_id, n.content, NULL::NUMERIC AS amount, n.date, 'note' AS type
-				FROM notes n
-				LEFT JOIN notes_tags nt ON n.id = nt.note_id
-				LEFT JOIN tags t ON nt.tag_id = t.id
-				LEFT JOIN notes_persons m ON n.id = m.note_id
-				LEFT JOIN persons p ON m.person_id = p.id
-				LEFT JOIN notes_places np ON n.id = np.note_id
-				LEFT JOIN places pl ON np.place_id = pl.id
-				%s
-				GROUP BY n.id
+			SELECT n.id, n.user_id, n.content, NULL::NUMERIC AS amount, n.date, 'note' AS type
+			FROM notes n
+			LEFT JOIN notes_tags nt ON n.id = nt.note_id
+			LEFT JOIN tags t ON nt.tag_id = t.id
+			LEFT JOIN notes_persons m ON n.id = m.note_id
+			LEFT JOIN persons p ON m.person_id = p.id
+			LEFT JOIN notes_places np ON n.id = np.note_id
+			LEFT JOIN places pl ON np.place_id = pl.id
+			%s
+			GROUP BY n.id
 		),
 		filtered_expenses AS (
-				SELECT e.id, e.user_id, e.content, e.amount, e.date, 'expense' AS type
-				FROM expenses e
-				LEFT JOIN expense_tags et ON e.id = et.expense_id
-				LEFT JOIN tags t ON et.tag_id = t.id
-				LEFT JOIN expense_persons ep ON e.id = ep.expense_id
-				LEFT JOIN persons p ON ep.person_id = p.id
-				LEFT JOIN expense_places ex_pl ON e.id = ex_pl.expense_id
-				LEFT JOIN places pl ON ex_pl.place_id = pl.id
-				%s
-				GROUP BY e.id
+			SELECT e.id, e.user_id, e.content, e.amount, e.date, 'expense' AS type
+			FROM expenses e
+			LEFT JOIN expense_tags et ON e.id = et.expense_id
+			LEFT JOIN tags t ON et.tag_id = t.id
+			LEFT JOIN expense_persons ep ON e.id = ep.expense_id
+			LEFT JOIN persons p ON ep.person_id = p.id
+			LEFT JOIN expense_places ex_pl ON e.id = ex_pl.expense_id
+			LEFT JOIN places pl ON ex_pl.place_id = pl.id
+			%s
+			GROUP BY e.id
 		)
 		SELECT * FROM filtered_notes
 		UNION ALL
 		SELECT * FROM filtered_expenses
-		ORDER BY date DESC;`, conditionStringNotes, conditionStringExpenses)
+		ORDER BY date DESC;
+	`, conditionStringNotes, conditionStringExpenses)
 
 	// Execute Query
 	rows, err := r.db.QueryContext(ctx, query, queryParts.Values...)

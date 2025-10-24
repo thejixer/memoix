@@ -11,11 +11,11 @@ import (
 
 type INoteRepository interface {
 	Create(ctx context.Context, content string, date time.Time, tags, mentions, places []string, userID uint64) (*models.NoteEntity, error)
-	GetTopTags(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.TagUsageDto, error)
-	QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error)
+	GetTopTags(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error)
+	QueryTags(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.TagDto, error)
 	QueryPlaces(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.PlaceDto, error)
-	GetTopMentions(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.MentionUsageDto, error)
-	GetNotesAndExpenses(ctx context.Context, hashtags, mentions, places []string, userID uint64) ([]*models.EntryEntity, error)
+	GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error)
+	GetNotesAndExpenses(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error)
 	DeleteNote(ctx context.Context, noteID, userID uint64) error
 	GetFilteredTimestamps(ctx context.Context, hashtags, mentions, places []string, userID uint64, startDate, endDate *time.Time) ([]time.Time, error)
 }
@@ -43,17 +43,17 @@ func (s *NoteService) Create(ctx context.Context, content string, date time.Time
 	return note, nil
 }
 
-func (s *NoteService) GetTopTags(ctx context.Context, query string, userID uint64) ([]*models.TagUsageDto, error) {
+func (s *NoteService) GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
-	tags, err := s.dbStore.NoteRepo().GetTopTags(ctx, hashtags, mentions, places, userID)
+	tags, err := s.dbStore.NoteRepo().GetTopTags(ctx, hashtags, mentions, places, since, until, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.GetTopTags: %w", err)
 	}
 	return tags, nil
 }
 
-func (s *NoteService) QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error) {
-	tags, err := s.dbStore.NoteRepo().QueryTags(ctx, userId, text, limit, offset)
+func (s *NoteService) QueryTags(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.TagDto, error) {
+	tags, err := s.dbStore.NoteRepo().QueryTags(ctx, userId, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.QueryTags: %w", err)
 	}
@@ -67,18 +67,18 @@ func (s *NoteService) QueryPlaces(ctx context.Context, userId uint64, text strin
 	return places, nil
 }
 
-func (s *NoteService) GetTopMentions(ctx context.Context, query string, userID uint64) ([]*models.MentionUsageDto, error) {
+func (s *NoteService) GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
-	data, err := s.dbStore.NoteRepo().GetTopMentions(ctx, hashtags, mentions, places, userID)
+	data, err := s.dbStore.NoteRepo().GetTopMentions(ctx, hashtags, mentions, places, since, until, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.GetTopMentions: %w", err)
 	}
 	return data, nil
 }
 
-func (s *NoteService) GetNotes(ctx context.Context, query string, userID uint64) ([]*models.EntryEntity, error) {
+func (s *NoteService) GetNotes(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
-	data, err := s.dbStore.NoteRepo().GetNotesAndExpenses(ctx, hashtags, mentions, places, userID)
+	data, err := s.dbStore.NoteRepo().GetNotesAndExpenses(ctx, hashtags, mentions, places, since, until, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.GetNotes: %w", err)
 	}
@@ -92,10 +92,10 @@ func (s *NoteService) DeleteNote(ctx context.Context, noteID, userID uint64) err
 	return nil
 }
 
-func (s *NoteService) GetQueryStats(ctx context.Context, query string, userID uint64) (*models.QueryStats, error) {
+func (s *NoteService) GetQueryStats(ctx context.Context, query string, since, until *time.Time, userID uint64) (*models.QueryStats, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
 
-	dates, err := s.dbStore.NoteRepo().GetFilteredTimestamps(ctx, hashtags, mentions, places, userID, nil, nil)
+	dates, err := s.dbStore.NoteRepo().GetFilteredTimestamps(ctx, hashtags, mentions, places, userID, since, until)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@ func (r *NoteRepo) GetFilteredTimestamps(
 	ctx context.Context,
 	hashtags, mentions, places []string,
 	userID uint64,
-	startDate, endDate *time.Time,
+	since, until *time.Time,
 ) ([]time.Time, error) {
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
@@ -32,16 +32,16 @@ func (r *NoteRepo) GetFilteredTimestamps(
 	}
 
 	// Date range filtering
-	if startDate != nil {
+	if since != nil {
 		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date >= $%d", queryParts.Counter))
 		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date >= $%d", queryParts.Counter))
-		queryParts.Values = append(queryParts.Values, *startDate)
+		queryParts.Values = append(queryParts.Values, *since)
 		queryParts.Counter++
 	}
-	if endDate != nil {
+	if until != nil {
 		queryParts.NoteConditions = append(queryParts.NoteConditions, fmt.Sprintf("n.date <= $%d", queryParts.Counter))
 		queryParts.ExpenseConditions = append(queryParts.ExpenseConditions, fmt.Sprintf("e.date <= $%d", queryParts.Counter))
-		queryParts.Values = append(queryParts.Values, *endDate)
+		queryParts.Values = append(queryParts.Values, *until)
 		queryParts.Counter++
 	}
 
