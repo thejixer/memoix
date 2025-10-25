@@ -84,7 +84,7 @@ func (h *Handler) HandleQueryTags(c echo.Context) error {
 	return c.JSON(http.StatusOK, tags)
 }
 func (h *Handler) HandleQueryPlaces(c echo.Context) error {
-	query := c.QueryParam("query")
+	t := c.QueryParam("text")
 
 	requester, err := GetRequester(c, h)
 	if err != nil {
@@ -95,7 +95,7 @@ func (h *Handler) HandleQueryPlaces(c echo.Context) error {
 	pageStr := c.QueryParam("page")
 
 	limit, offset := utils.ParsePagination(limitStr, pageStr)
-	places, err := h.Service.NoteService().QueryPlaces(ctx, requester.ID, query, limit, offset)
+	places, err := h.Service.NoteService().QueryPlaces(ctx, requester.ID, t, limit, offset)
 	if err != nil {
 		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
 	}
