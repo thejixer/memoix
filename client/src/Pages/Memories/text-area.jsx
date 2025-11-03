@@ -67,7 +67,6 @@ export default function MentionTextarea({ value, setValue }) {
 				'&': `/place/?text=${query}&page=1&limit=5`,
 			};
 			const url = obj[type];
-			console.log('url is:', url);
 			const resp = await httpClient.get(url);
 			if (resp.status === 200) {
 				setSuggestions(resp.data || []);

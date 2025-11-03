@@ -13,6 +13,7 @@ import (
 type IExpenseRepository interface {
 	Create(ctx context.Context, expense *models.ExpenseEntity, tags, mentions, places []string) (*models.ExpenseEntity, error)
 	AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error)
+	AggregateExpensesByTag(ctx context.Context, userID uint64, since, until *time.Time) ([]*models.ExpenseByTagDto, error)
 }
 
 type ExpenseService struct {
@@ -50,9 +51,19 @@ func (s *ExpenseService) Create(ctx context.Context, expense *models.ExpenseEnti
 }
 
 func (s *ExpenseService) AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error) {
+
 	dailyExpense, err := s.dbStore.ExpenseRepo().AggregateExpensesByDate(ctx, userID, startDate, endDate)
 	if err != nil {
 		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate: %w", err)
 	}
+
 	return dailyExpense, nil
+}
+
+func (s *ExpenseService) AggregateExpensesByTag(ctx context.Context, userID uint64, since, until *time.Time) ([]*models.ExpenseByTagDto, error) {
+	expenseByTag, err := s.dbStore.ExpenseRepo().AggregateExpensesByTag(ctx, userID, since, until)
+	if err != nil {
+		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByTag: %w", err)
+	}
+	return expenseByTag, nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"memoix-server/internal/models"
 	"memoix-server/internal/service"
+	"sort"
 	"time"
 )
 
@@ -18,7 +19,7 @@ func (s *PostgresStore) createExpenseTables() error {
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 			amount DECIMAL(15,2) NOT NULL,
 			content TEXT NOT NULL,
-			date TIMESTAMP DEFAULT now()
+			date TIMESTAMPTZ DEFAULT now()
 		);
 
 		CREATE TABLE if not exists expense_tags (
@@ -146,55 +147,111 @@ func (r *ExpenseRepo) Create(ctx context.Context, expense *models.ExpenseEntity,
 }
 
 func (r *ExpenseRepo) AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error) {
-
-	// Ensure startDate is before endDate
-	if startDate.After(endDate) {
-		startDate, endDate = endDate, startDate // Swap if needed
-	}
-
-	// Truncate to midnight for consistent date ranges
-	startDate = startDate.Truncate(24 * time.Hour)
-	endDate = endDate.Truncate(24 * time.Hour).Add(24 * time.Hour) // include the whole end day
-
 	query := `
 		SELECT 
-			DATE(date) AS expense_date, 
-			SUM(amount) AS total_amount
+			date,
+			amount
 		FROM 
 			expenses
 		WHERE 
-			user_id = $1 AND date >= $2 AND date < $3
-		GROUP BY 
-			expense_date
+			user_id = $1 AND date >= $2 AND date <= $3
 		ORDER BY 
-			expense_date;
+			date;
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, userID, startDate, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 1: %w", err)
+		return nil, fmt.Errorf("error querying expenses: %w", err)
 	}
 	defer rows.Close()
 
-	var expenses []*models.DailyExpenseDto
-	for rows.Next() {
-		expense := new(models.DailyExpenseDto)
-		var dateStr string // Temporary string to parse the date
-		if err := rows.Scan(&dateStr, &expense.Total); err != nil {
-			return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 2: %w", err)
-		}
-		// expense.Date, err = time.Parse("2006-01-02", dateStr) // Parse the date string
-		expense.Date, err = time.Parse(time.RFC3339, dateStr)
+	// Step 1: Fetch all raw expenses
+	type rawExpense struct {
+		Date   time.Time
+		Amount float64
+	}
 
-		if err != nil {
-			return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 3: %w", err)
+	var rawExpenses []rawExpense
+	for rows.Next() {
+		var e rawExpense
+		if err := rows.Scan(&e.Date, &e.Amount); err != nil {
+			return nil, fmt.Errorf("error scanning expense row: %w", err)
 		}
-		expenses = append(expenses, expense)
+		rawExpenses = append(rawExpenses, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+	fmt.Println("rawExpenses : ", rawExpenses)
+
+	// Step 2: Group by truncated date
+	totalsByDay := make(map[time.Time]float64)
+	for _, e := range rawExpenses {
+		day := time.Date(e.Date.Year(), e.Date.Month(), e.Date.Day(), 0, 0, 0, 0, time.Local) // truncate to start of day
+		totalsByDay[day] += e.Amount
+	}
+
+	// Step 3: Build final result slice
+	var expenses []*models.DailyExpenseDto
+	for day, total := range totalsByDay {
+		expenses = append(expenses, &models.DailyExpenseDto{
+			Date:  day,
+			Total: total,
+		})
+	}
+
+	// Step 4: Sort by date ascending
+	sort.Slice(expenses, func(i, j int) bool {
+		return expenses[i].Date.Before(expenses[j].Date)
+	})
+
+	return expenses, nil
+}
+
+func (r *ExpenseRepo) AggregateExpensesByTag(ctx context.Context, userID uint64, since, until *time.Time) ([]*models.ExpenseByTagDto, error) {
+	if since == nil || until == nil {
+		return nil, fmt.Errorf("since and until must not be nil")
+	}
+
+	query := `
+WITH composite_tags AS (
+    SELECT
+        e.id AS expense_id,
+        STRING_AGG(t.name, ' ' ORDER BY t.name) AS composite_tag,
+        e.amount AS total
+    FROM expenses e
+    JOIN expense_tags et ON e.id = et.expense_id
+    JOIN tags t ON t.id = et.tag_id
+    WHERE e.user_id = $1
+      AND e.date >= $2
+      AND e.date <= $3
+    GROUP BY e.id, e.amount
+)
+SELECT composite_tag, SUM(total) AS total
+FROM composite_tags
+GROUP BY composite_tag
+ORDER BY total DESC
+LIMIT 20;
+`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, *since, *until)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query AggregateExpensesByTag: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*models.ExpenseByTagDto
+	for rows.Next() {
+		var dto models.ExpenseByTagDto
+		if err := rows.Scan(&dto.Tag, &dto.Total); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, &dto)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error in ExpenseService.AggregateExpensesByDate 4: %w", err)
+		return nil, fmt.Errorf("row iteration error: %w", err)
 	}
 
-	return expenses, nil
+	return results, nil
 }

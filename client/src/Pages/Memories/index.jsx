@@ -176,10 +176,16 @@ export default () => {
 	const createURLSearchParams = (q, since, until) => {
 		const params = new URLSearchParams();
 		if (q) params.append('query', q);
-		if (since && since instanceof Date)
-			params.append('since', since.toISOString());
-		if (until && until instanceof Date)
-			params.append('until', until.toISOString());
+		if (since && since instanceof Date) {
+			const startOfDay = new Date(since);
+			startOfDay.setHours(0, 0, 0, 0);
+			params.append('since', startOfDay.toISOString());
+		}
+		if (until && until instanceof Date) {
+			const endOfDay = new Date(until);
+			endOfDay.setHours(23, 59, 59, 999);
+			params.append('until', endOfDay.toISOString());
+		}
 		return params;
 	};
 

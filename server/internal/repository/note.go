@@ -20,7 +20,7 @@ func (s *PostgresStore) createNoteTables() error {
 			user_id integer NOT NULL,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 			content TEXT NOT NULL,
-			date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 		);
 
 		CREATE TABLE if not exists tags (
@@ -293,8 +293,6 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 	return tags, nil
 }
 
-
-
 func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error) {
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
@@ -416,7 +414,6 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 
 	return mentionsList, nil
 }
-
 
 func (r *NoteRepo) QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error) {
 	query := `

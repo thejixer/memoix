@@ -5,5 +5,6 @@ import "github.com/labstack/echo/v4"
 func (r *Router) ApplyExpenseRoutes(e *echo.Echo) {
 	g := e.Group("/expense")
 	g.POST("/", r.h.HandleCreateExpense)
-	g.POST("/daily", r.h.HandleGetDailyExpenses)
+	g.GET("/daily", r.h.HandleGetDailyExpenses)
+	g.GET("/by-tag", r.h.HandleGetExpenseByTags)
 }

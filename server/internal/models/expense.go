@@ -17,12 +17,12 @@ type CreateExpenseDto struct {
 	Date    time.Time `json:"date" validate:"required"`
 }
 
-type GetDailyExpenseDto struct {
-	MinDate time.Time `json:"min_date" validate:"required"`
-	MaxDate time.Time `json:"max_date" validate:"required"`
-}
-
 type DailyExpenseDto struct {
 	Date  time.Time `json:"date"`
 	Total float64   `json:"total"`
+}
+
+type ExpenseByTagDto struct {
+	Tag   string  `json:"tag"`
+	Total float64 `json:"total"`
 }

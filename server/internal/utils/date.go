@@ -19,5 +19,9 @@ func ParseDateRange(sinceStr, untilStr string) (*time.Time, *time.Time) {
 		}
 	}
 
+	if since != nil && until != nil && since.After(*until) {
+		since, until = until, since
+	}
+
 	return since, until
 }

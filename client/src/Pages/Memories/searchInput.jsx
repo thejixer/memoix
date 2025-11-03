@@ -7,8 +7,10 @@ function useDebounce(callback, delay) {
 		if (timeoutRef.current) clearTimeout(timeoutRef.current);
 		timeoutRef.current = setTimeout(() => callback(...args), delay);
 	};
+	const cancel = () => clearTimeout(timeoutRef.current);
+
 	useEffect(() => () => clearTimeout(timeoutRef.current), []);
-	return debounced;
+	return [debounced, cancel];
 }
 
 export default function MentionInput({
@@ -19,25 +21,29 @@ export default function MentionInput({
 	since,
 	until,
 }) {
+	const latestQueryRef = useRef('');
 	const [suggestions, setSuggestions] = useState([]);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [trigger, setTrigger] = useState(null);
 	const inputRef = useRef(null);
 
-	const fetchSuggestions = useDebounce(async (query, type) => {
-		if (!query || !type) return setSuggestions([]);
-		try {
-			const urlMap = {
-				'@': `/person/?text=${query}&page=1&limit=5`,
-				'#': `/tag/?text=${query}&page=1&limit=5`,
-				'&': `/place/?text=${query}&page=1&limit=5`,
-			};
-			const resp = await httpClient.get(urlMap[type]);
-			if (resp.status === 200) setSuggestions(resp.data || []);
-		} catch {
-			setSuggestions([]);
-		}
-	}, 300);
+	const [fetchSuggestions, cancelSuggestions] = useDebounce(
+		async (query, type) => {
+			if (!query || !type) return setSuggestions([]);
+			try {
+				const urlMap = {
+					'@': `/person/?text=${query}&page=1&limit=5`,
+					'#': `/tag/?text=${query}&page=1&limit=5`,
+					'&': `/place/?text=${query}&page=1&limit=5`,
+				};
+				const resp = await httpClient.get(urlMap[type]);
+				if (resp.status === 200) setSuggestions(resp.data || []);
+			} catch {
+				setSuggestions([]);
+			}
+		},
+		300
+	);
 
 	useEffect(() => {
 		const mentionMatch = value.match(/@(\w*)$/);
@@ -64,6 +70,7 @@ export default function MentionInput({
 			setActiveIndex(i => (i - 1 + suggestions.length) % suggestions.length);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
+			cancelSuggestions();
 			if (suggestions.length) {
 				handleSelect(suggestions[activeIndex]);
 			} else {
@@ -100,7 +107,11 @@ export default function MentionInput({
 				ref={inputRef}
 				type="text"
 				value={value}
-				onChange={e => setValue(e.target.value)}
+				onChange={e => {
+					setSuggestions([]);
+					setActiveIndex(0);
+					setValue(e.target.value);
+				}}
 				onKeyDown={handleKeyDown}
 				placeholder={placeholder}
 				style={{

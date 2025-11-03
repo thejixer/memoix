@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
+	"memoix-server/internal/utils"
 	"net/http"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 type IExpenseService interface {
 	Create(ctx context.Context, expense *models.ExpenseEntity) (*models.ExpenseEntity, error)
 	AggregateExpensesByDate(ctx context.Context, userID uint64, startDate, endDate time.Time) ([]*models.DailyExpenseDto, error)
+	AggregateExpensesByTag(ctx context.Context, userID uint64, since, until *time.Time) ([]*models.ExpenseByTagDto, error)
 }
 
 func (h *Handler) HandleCreateExpense(c echo.Context) error {
@@ -48,23 +51,39 @@ func (h *Handler) HandleCreateExpense(c echo.Context) error {
 }
 
 func (h *Handler) HandleGetDailyExpenses(c echo.Context) error {
-	body := models.GetDailyExpenseDto{}
-
-	if err := c.Bind(&body); err != nil {
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
+	fmt.Println("since : ", since)
+	fmt.Println("until : ", until)
+	if since == nil || until == nil {
 		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
 	}
 
-	if err := c.Validate(body); err != nil {
-		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrInputRequirements.Error())
-	}
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	dailyExpenses, err := h.Service.ExpenseService().AggregateExpensesByDate(ctx, requester.ID, body.MinDate, body.MaxDate)
+	dailyExpenses, err := h.Service.ExpenseService().AggregateExpensesByDate(ctx, requester.ID, *since, *until)
 	if err != nil {
 		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrUnexpected.Error())
 	}
 	return c.JSON(http.StatusOK, dailyExpenses)
+}
+
+func (h *Handler) HandleGetExpenseByTags(c echo.Context) error {
+	sinceStr := c.QueryParam("since")
+	untilStr := c.QueryParam("until")
+	since, until := utils.ParseDateRange(sinceStr, untilStr)
+	requester, err := GetRequester(c, h)
+	if err != nil {
+		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
+	}
+	ctx := c.Request().Context()
+	expenseByTags, err := h.Service.ExpenseService().AggregateExpensesByTag(ctx, requester.ID, since, until)
+	if err != nil {
+		return WriteReponse(c, http.StatusBadRequest, apperrors.ErrUnexpected.Error())
+	}
+	return c.JSON(http.StatusOK, expenseByTags)
 }

@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"memoix-server/internal/adapters"
 	"memoix-server/internal/apperrors"
 	"memoix-server/internal/models"
@@ -128,7 +127,6 @@ func (h *Handler) HandleGetNotes(c echo.Context) error {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	fmt.Println("attempting to fetch notes since : ", since)
 	notes, err := h.Service.NoteService().GetNotes(ctx, query, since, until, requester.ID)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
