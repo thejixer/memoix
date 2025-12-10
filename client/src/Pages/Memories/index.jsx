@@ -6,6 +6,9 @@ import CreateExpense from './create-expense';
 import Header from './header';
 import Tabs from '../../components/tabs';
 import Analytics from './analytics';
+import { onKeysPress } from '../../utils/onKeysPress';
+
+let keys = []
 
 const CreateModal = ({ isOpen, closeModal }) => {
 	return isOpen ? (
@@ -151,16 +154,9 @@ export default () => {
 	}, []);
 
 	useEffect(() => {
-		console.log('elo');
-		// window.onkeydown
-		window.addEventListener('keydown', e => {
-			console.log(e.key);
-			// setModalOpen(!isModalOpen);
-		});
-
-		return () => {
-			window.removeEventListener('keydown', () => {});
-		};
+		const onKeyDown = (e) => onKeysPress({ cb: () => alert("salam"), keys: ["Control", "k"], pressedKey: e.key })
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
 	}, []);
 
 	return (
