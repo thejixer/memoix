@@ -16,8 +16,8 @@ import (
 
 type INoteService interface {
 	Create(ctx context.Context, note string, date time.Time, userID uint64) (*models.NoteEntity, error)
-	GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error)
-	GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error)
+	GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64, mode string) ([]*models.TagUsageDto, error)
+	GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64, mode string) ([]*models.MentionUsageDto, error)
 	QueryTags(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.TagDto, error)
 	QueryPlaces(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.PlaceDto, error)
 	GetNotes(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error)
@@ -51,13 +51,20 @@ func (h *Handler) HandleGetTopTags(c echo.Context) error {
 	query := c.QueryParam("query")
 	sinceStr := c.QueryParam("since")
 	untilStr := c.QueryParam("until")
+	mode := c.QueryParam("mode")
+	switch mode {
+	case "note", "expense":
+		// keep as is
+	default:
+		mode = "both" // fallback for missing or invalid mode
+	}
 	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	tags, err := h.Service.NoteService().GetTopTags(ctx, query, since, until, requester.ID)
+	tags, err := h.Service.NoteService().GetTopTags(ctx, query, since, until, requester.ID, mode)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}
@@ -105,13 +112,20 @@ func (h *Handler) HandleGetTopMentions(c echo.Context) error {
 	query := c.QueryParam("query")
 	sinceStr := c.QueryParam("since")
 	untilStr := c.QueryParam("until")
+	mode := c.QueryParam("mode")
+	switch mode {
+	case "note", "expense":
+		// keep as is
+	default:
+		mode = "both" // fallback for missing or invalid mode
+	}
 	since, until := utils.ParseDateRange(sinceStr, untilStr)
 	requester, err := GetRequester(c, h)
 	if err != nil {
 		return WriteReponse(c, http.StatusUnauthorized, apperrors.ErrUnauthorized.Error())
 	}
 	ctx := c.Request().Context()
-	mentions, err := h.Service.NoteService().GetTopMentions(ctx, query, since, until, requester.ID)
+	mentions, err := h.Service.NoteService().GetTopMentions(ctx, query, since, until, requester.ID, mode)
 	if err != nil {
 		return WriteReponse(c, http.StatusInternalServerError, apperrors.ErrUnexpected.Error())
 	}

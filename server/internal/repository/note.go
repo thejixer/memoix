@@ -172,7 +172,24 @@ func (r *NoteRepo) Create(ctx context.Context, content string, date time.Time, t
 	return NewNote, nil
 }
 
-func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error) {
+func (r *NoteRepo) GetTopTags(
+	ctx context.Context,
+	hashtags, mentions, places []string,
+	since, until *time.Time,
+	userID uint64,
+	mode string, // "both" (default), "note", or "expense"
+) ([]*models.TagUsageDto, error) {
+	if mode != "" && mode != "both" && mode != "note" && mode != "expense" {
+		return nil, fmt.Errorf("invalid mode: %s (must be '', 'both', 'note', or 'expense')", mode)
+	}
+	// Normalize mode
+	if mode == "" {
+		mode = "both"
+	}
+
+	includeNotes := mode == "both" || mode == "note"
+	includeExpenses := mode == "both" || mode == "expense"
+
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
 		ExpenseConditions: []string{"e.user_id = $1"},
@@ -206,7 +223,7 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		queryParts.Counter++
 	}
 
-	// Build WHERE conditions for notes/expenses
+	// Build WHERE conditions
 	conditionStringNotes := ""
 	conditionStringExpenses := ""
 	if len(queryParts.NoteConditions) > 0 {
@@ -216,7 +233,7 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
 	}
 
-	// Build exclusion for hashtags so they don't appear in top-tags
+	// Exclude current hashtags from result
 	excludeTags := ""
 	if len(hashtags) > 0 {
 		placeholders := make([]string, len(hashtags))
@@ -228,9 +245,11 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 		excludeTags = "WHERE LOWER(t.name) NOT IN (" + strings.Join(placeholders, ", ") + ")"
 	}
 
-	// Construct final query
-	query := fmt.Sprintf(`
-		WITH filtered_items AS (
+	// Build parts dynamically based on mode
+	var unionParts []string
+
+	if includeNotes {
+		notePart := fmt.Sprintf(`
 			SELECT n.id, 'note' AS type
 			FROM notes n
 			LEFT JOIN notes_tags nt ON n.id = nt.note_id
@@ -241,9 +260,12 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 			LEFT JOIN places pl ON npl.place_id = pl.id
 			%s
 			GROUP BY n.id
+		`, conditionStringNotes)
+		unionParts = append(unionParts, notePart)
+	}
 
-			UNION ALL
-
+	if includeExpenses {
+		expensePart := fmt.Sprintf(`
 			SELECT e.id, 'expense' AS type
 			FROM expenses e
 			LEFT JOIN expense_tags et ON e.id = et.expense_id
@@ -254,25 +276,50 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 			LEFT JOIN places pl ON epl.place_id = pl.id
 			%s
 			GROUP BY e.id
-		)
-		SELECT t.name, COUNT(*) AS usage_count
-		FROM (
+		`, conditionStringExpenses)
+		unionParts = append(unionParts, expensePart)
+	}
+
+	// Nothing to query
+	if len(unionParts) == 0 {
+		return []*models.TagUsageDto{}, nil
+	}
+
+	filteredItemsQuery := strings.Join(unionParts, "\nUNION ALL\n")
+
+	// Build tag union part
+	var tagUnionParts []string
+	if includeNotes {
+		tagUnionParts = append(tagUnionParts, `
 			SELECT nt.tag_id
 			FROM notes_tags nt
 			WHERE nt.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
-
-			UNION ALL
-
+		`)
+	}
+	if includeExpenses {
+		tagUnionParts = append(tagUnionParts, `
 			SELECT et.tag_id
 			FROM expense_tags et
 			WHERE et.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
+		`)
+	}
+	tagUnion := strings.Join(tagUnionParts, "\nUNION ALL\n")
+
+	// Final query
+	query := fmt.Sprintf(`
+		WITH filtered_items AS (
+			%s
+		)
+		SELECT t.name, COUNT(*) AS usage_count
+		FROM (
+			%s
 		) item_tags
 		JOIN tags t ON item_tags.tag_id = t.id
 		%s
 		GROUP BY t.id, t.name
 		ORDER BY usage_count DESC
 		LIMIT 10;
-	`, conditionStringNotes, conditionStringExpenses, excludeTags)
+	`, filteredItemsQuery, tagUnion, excludeTags)
 
 	// Execute query
 	rows, err := r.db.QueryContext(ctx, query, queryParts.Values...)
@@ -293,7 +340,28 @@ func (r *NoteRepo) GetTopTags(ctx context.Context, hashtags, mentions, places []
 	return tags, nil
 }
 
-func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error) {
+
+func (r *NoteRepo) GetTopMentions(
+	ctx context.Context,
+	hashtags, mentions, places []string,
+	since, until *time.Time,
+	userID uint64,
+	mode string, // "", "both", "note", or "expense"
+) ([]*models.MentionUsageDto, error) {
+
+	// ✅ Validate mode
+	if mode != "" && mode != "both" && mode != "note" && mode != "expense" {
+		return nil, fmt.Errorf("invalid mode: %s (must be '', 'both', 'note', or 'expense')", mode)
+	}
+
+	// Normalize mode
+	if mode == "" {
+		mode = "both"
+	}
+
+	includeNotes := mode == "both" || mode == "note"
+	includeExpenses := mode == "both" || mode == "expense"
+
 	queryParts := QueryParts{
 		NoteConditions:    []string{"n.user_id = $1"},
 		ExpenseConditions: []string{"e.user_id = $1"},
@@ -307,7 +375,6 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 		MentionFilter{Mentions: mentions},
 		PlaceFilter{Places: places},
 	}
-
 	for _, filter := range filters {
 		filter.ApplyFilter(&queryParts)
 	}
@@ -337,9 +404,11 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 		conditionStringExpenses = "WHERE " + strings.Join(queryParts.ExpenseConditions, " AND ")
 	}
 
-	// ✅ Main query — uses unified filtering and includes places
-	query := fmt.Sprintf(`
-		WITH filtered_items AS (
+	// ✅ Build mode-based subqueries dynamically
+	var unionParts []string
+
+	if includeNotes {
+		notePart := fmt.Sprintf(`
 			SELECT n.id, 'note' AS type
 			FROM notes n
 			LEFT JOIN notes_tags nt ON n.id = nt.note_id
@@ -350,9 +419,12 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 			LEFT JOIN places pl ON npl.place_id = pl.id
 			%s
 			GROUP BY n.id
+		`, conditionStringNotes)
+		unionParts = append(unionParts, notePart)
+	}
 
-			UNION ALL
-
+	if includeExpenses {
+		expensePart := fmt.Sprintf(`
 			SELECT e.id, 'expense' AS type
 			FROM expenses e
 			LEFT JOIN expense_tags et ON e.id = et.expense_id
@@ -363,21 +435,46 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 			LEFT JOIN places pl ON epl.place_id = pl.id
 			%s
 			GROUP BY e.id
-		)
-		SELECT p.id, p.name, COUNT(*) AS mention_count
-		FROM (
+		`, conditionStringExpenses)
+		unionParts = append(unionParts, expensePart)
+	}
+
+	// Nothing to query
+	if len(unionParts) == 0 {
+		return []*models.MentionUsageDto{}, nil
+	}
+
+	filteredItemsQuery := strings.Join(unionParts, "\nUNION ALL\n")
+
+	// ✅ Build tag union part dynamically based on mode
+	var mentionUnionParts []string
+	if includeNotes {
+		mentionUnionParts = append(mentionUnionParts, `
 			SELECT np.person_id
 			FROM notes_persons np
 			WHERE np.note_id IN (SELECT id FROM filtered_items WHERE type = 'note')
-
-			UNION ALL
-
+		`)
+	}
+	if includeExpenses {
+		mentionUnionParts = append(mentionUnionParts, `
 			SELECT ep.person_id
 			FROM expense_persons ep
 			WHERE ep.expense_id IN (SELECT id FROM filtered_items WHERE type = 'expense')
+		`)
+	}
+	mentionUnion := strings.Join(mentionUnionParts, "\nUNION ALL\n")
+
+	// ✅ Main query — uses unified filtering and includes places
+	query := fmt.Sprintf(`
+		WITH filtered_items AS (
+			%s
+		)
+		SELECT p.id, p.name, COUNT(*) AS mention_count
+		FROM (
+			%s
 		) item_mentions
 		JOIN persons p ON item_mentions.person_id = p.id
-	`, conditionStringNotes, conditionStringExpenses)
+	`, filteredItemsQuery, mentionUnion)
 
 	// ✅ Exclude search mentions (so they don't appear in top list)
 	if len(mentions) > 0 {
@@ -414,6 +511,7 @@ func (r *NoteRepo) GetTopMentions(ctx context.Context, hashtags, mentions, place
 
 	return mentionsList, nil
 }
+
 
 func (r *NoteRepo) QueryTags(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.TagDto, error) {
 	query := `

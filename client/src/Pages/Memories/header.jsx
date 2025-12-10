@@ -1,13 +1,13 @@
 import colors from '../../utils/colors';
 import SearchInput from './searchInput';
 import { formatDateTime } from '../../utils/date';
+import DatePicker from 'react-datepicker';
 export default ({
 	fetchAll,
 	query,
 	setQuery,
 	topTags,
 	topMentions,
-	setDateModalOpen,
 	since,
 	until,
 	setSince,
@@ -16,7 +16,15 @@ export default ({
 	const clearButtonEnabled = Boolean(query || since || until);
 	return (
 		<div style={{ paddingTop: 8 }}>
-			<div style={{ padding: '0 8px', marginBottom: 8 }}>
+			<div
+				style={{
+					padding: '0 8px',
+					marginBottom: 8,
+					display: 'flex', // 👈 bring it back
+					alignItems: 'center', // vertically align
+					flexWrap: 'wrap', // allow wrapping if screen is small
+				}}
+			>
 				<SearchInput
 					value={query}
 					setValue={setQuery}
@@ -41,20 +49,56 @@ export default ({
 				>
 					clear filters
 				</button>
-				<button
-					className="g-btn"
-					style={{ margin: 1 }}
-					onClick={setDateModalOpen}
+				<div
+					className="date-range cg"
+					style={{
+						marginLeft: 8,
+						padding: '4px 8px',
+						borderBottom: '1px solid #33ff33',
+						border: 'none',
+					}}
 				>
-					date thing
-				</button>
-
-				<span className="cg">
-					{' '}
-					{!!since || !!until ? 'date filter is on' : ''}{' '}
-					{!!since ? `since ${formatDateTime(since)}` : ''}{' '}
-					{!!until ? `until ${formatDateTime(until)}` : ''}
-				</span>
+					<label>since</label>
+					<DatePicker
+						selected={since}
+						onChange={date => {
+							setSince(date);
+							fetchAll(query, date, until);
+						}}
+						calendarClassName="evil-terminal-calendar"
+						dayClassName={() => 'evil-terminal-day'}
+						customInput={
+							<button
+								className="g-btn"
+								// style={{ display: 'inline !important' }}
+							>
+								{' '}
+								{since ? formatDateTime(since) : 'not specified'}{' '}
+							</button>
+						}
+						// withPortal
+					/>
+					<label>until</label>
+					<DatePicker
+						selected={until}
+						onChange={date => {
+							setUntil(date);
+							fetchAll(query, since, date);
+						}}
+						calendarClassName="evil-terminal-calendar"
+						dayClassName={() => 'evil-terminal-day'}
+						customInput={
+							<button
+								className="g-btn"
+								// style={{ display: 'inline !important' }}
+							>
+								{' '}
+								{until ? formatDateTime(until) : 'not specified'}{' '}
+							</button>
+						}
+						// withPortal
+					/>
+				</div>
 			</div>
 			<div style={{ minHeight: 50 }}>
 				<div style={{ padding: '0 8px', marginBottom: 4 }}>

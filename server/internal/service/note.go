@@ -11,10 +11,10 @@ import (
 
 type INoteRepository interface {
 	Create(ctx context.Context, content string, date time.Time, tags, mentions, places []string, userID uint64) (*models.NoteEntity, error)
-	GetTopTags(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error)
+	GetTopTags(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64, mode string) ([]*models.TagUsageDto, error)
 	QueryTags(ctx context.Context, userId uint64, query string, limit, offset *int) ([]*models.TagDto, error)
 	QueryPlaces(ctx context.Context, userId uint64, text string, limit, offset *int) ([]*models.PlaceDto, error)
-	GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error)
+	GetTopMentions(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64, mode string) ([]*models.MentionUsageDto, error)
 	GetNotesAndExpenses(ctx context.Context, hashtags, mentions, places []string, since, until *time.Time, userID uint64) ([]*models.EntryEntity, error)
 	DeleteNote(ctx context.Context, noteID, userID uint64) error
 	GetFilteredTimestamps(ctx context.Context, hashtags, mentions, places []string, userID uint64, startDate, endDate *time.Time) ([]time.Time, error)
@@ -43,9 +43,9 @@ func (s *NoteService) Create(ctx context.Context, content string, date time.Time
 	return note, nil
 }
 
-func (s *NoteService) GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.TagUsageDto, error) {
+func (s *NoteService) GetTopTags(ctx context.Context, query string, since, until *time.Time, userID uint64, mode string) ([]*models.TagUsageDto, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
-	tags, err := s.dbStore.NoteRepo().GetTopTags(ctx, hashtags, mentions, places, since, until, userID)
+	tags, err := s.dbStore.NoteRepo().GetTopTags(ctx, hashtags, mentions, places, since, until, userID, mode)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.GetTopTags: %w", err)
 	}
@@ -67,9 +67,9 @@ func (s *NoteService) QueryPlaces(ctx context.Context, userId uint64, text strin
 	return places, nil
 }
 
-func (s *NoteService) GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64) ([]*models.MentionUsageDto, error) {
+func (s *NoteService) GetTopMentions(ctx context.Context, query string, since, until *time.Time, userID uint64, mode string) ([]*models.MentionUsageDto, error) {
 	hashtags, mentions, places := utils.ExtractEntities(query)
-	data, err := s.dbStore.NoteRepo().GetTopMentions(ctx, hashtags, mentions, places, since, until, userID)
+	data, err := s.dbStore.NoteRepo().GetTopMentions(ctx, hashtags, mentions, places, since, until, userID, mode)
 	if err != nil {
 		return nil, fmt.Errorf("error in NoteService.GetTopMentions: %w", err)
 	}
