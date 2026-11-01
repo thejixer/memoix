@@ -1,0 +1,100 @@
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Memory, Person, Tag } from '../domain';
+import { theme } from '../theme';
+import { AppText } from './ui';
+
+type Props = {
+  label?: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  people: Person[];
+  tags: Tag[];
+  memories: Memory[];
+  multiline?: boolean;
+};
+
+export default function EntityInput({
+  label,
+  value,
+  onChangeText,
+  people,
+  tags,
+  memories,
+  multiline = false,
+}: Props) {
+  const suggestions = useMemo(() => {
+    const match = value.match(/([#@&])([\p{L}\p{N}_]*)$/u);
+    if (!match || match[2].length === 0) return [];
+    const marker = match[1];
+    const query = match[2].toLocaleLowerCase();
+    const items =
+      marker === '@'
+        ? people.map(person => ({
+            token: `@${person.mentionKey}`,
+            label: person.fullName,
+          }))
+        : marker === '#'
+          ? tags.map(tag => ({ token: `#${tag.name}`, label: `#${tag.name}` }))
+          : [...new Set(memories.flatMap(memory => memory.places))].map(place => ({
+                token: `&${place}`,
+                label: `&${place}`,
+            }));
+    return items
+      .filter(item => item.token.slice(1).toLocaleLowerCase().includes(query))
+      .slice(0, 5);
+  }, [memories, people, tags, value]);
+
+  const select = (token: string) => {
+    onChangeText(value.replace(/([#@&])([\p{L}\p{N}_]*)$/u, `${token} `));
+  };
+
+  return (
+    <View style={styles.container}>
+      {label ? <AppText muted style={styles.label}>{label}</AppText> : null}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        multiline={multiline}
+        placeholder="Write freely; use #tags, @people, &places"
+        placeholderTextColor={theme.muted}
+        selectionColor={theme.green}
+        autoCapitalize="sentences"
+        style={[styles.input, multiline && styles.multiline]}
+      />
+      {suggestions.length > 0 && (
+        <View style={styles.suggestions}>
+          {suggestions.map(item => (
+            <Pressable key={item.token} onPress={() => select(item.token)} style={styles.suggestion}>
+              <AppText accent>{item.label}</AppText>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { gap: 6 },
+  label: { fontSize: 11 },
+  input: {
+    color: theme.white,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 46,
+    fontFamily: theme.font,
+  },
+  multiline: { minHeight: 140, textAlignVertical: 'top' },
+  suggestions: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 6,
+    backgroundColor: theme.surfaceRaised,
+  },
+  suggestion: { padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border },
+});

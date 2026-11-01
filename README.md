@@ -2,7 +2,37 @@
 
 Memoix is a personal, searchable journal that combines free-form notes, tagged expenses, people, and places in one chronological timeline. It lets a user record an event in their own words, relate it to people/tags/places, revisit it through filters, and review activity and spending statistics.
 
-This repository contains a React web client and a Go HTTP API backed by PostgreSQL and Redis. This README describes the behavior of the current application as a reference for a future mobile implementation.
+The repository retains the original React web client and Go API as a behavior reference, and now also contains a standalone React Native / Expo mobile app in `mobile/`. The mobile app is an offline-first rebuild using SQLite; it does not use the old backend or require authentication.
+
+## Mobile app
+
+The Expo app is in [`mobile/`](./mobile/). It keeps the black-and-neon-green terminal look and includes:
+
+- A combined timeline of `memo` and `expense` entries, with edit/delete, date filters, and entity-only search using `#tags`, `@people`, and `&places`.
+- Memory analytics with a recent-activity heatmap and occurrence-gap statistics.
+- People directory and editable person profiles (full name, mention key, description, birthdate, phone, and locally stored avatar).
+- A tag directory with editable names.
+- Expense analytics with a selectable daily line chart and top-20 composite tag/person charts.
+- Portable SQLite backup export and validated restore. Restoring replaces the current local data. Avatar image data is stored in SQLite so it travels in the backup.
+- No sign-in or network-dependent features. Data is stored locally on the device.
+
+### Develop
+
+```sh
+cd mobile
+npm ci
+npm start
+```
+
+Run `npm run typecheck` to type-check the app. Open the Expo development build on an Android device/emulator to use the native SQLite, date picker, and image-picker features.
+
+### Build and download an APK
+
+The [Build Android APK workflow](./.github/workflows/build-android-apk.yml) runs on pushes to `mobile-app` that change mobile files, and can also be started manually in GitHub Actions with **Run workflow**. Download the `memoix-android-apk` artifact from the completed workflow run. Artifacts are retained for 30 days.
+
+## Original web application
+
+The sections below document the original web/API behavior retained in this repository. They are useful as historical context for the mobile rebuild.
 
 ## What the application does
 

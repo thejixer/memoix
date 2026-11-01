@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Memoix",
+    "slug": "memoix-mobile",
+    "version": "1.0.0",
+    "scheme": "memoix",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.memoix.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#050805",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Memoix to use a photo as a person's avatar.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing",
+      "expo-font",
+      "@react-native-community/datetimepicker"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
