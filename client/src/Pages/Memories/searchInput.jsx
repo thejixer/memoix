@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import httpClient from '../../utils/http';
+import shortcutMaker from '../../utils/shortcutMaker';
 
 function useDebounce(callback, delay) {
 	const timeoutRef = useRef(null);
@@ -20,12 +21,14 @@ export default function MentionInput({
 	fetchAll,
 	since,
 	until,
+	ref,
 }) {
 	const latestQueryRef = useRef('');
 	const [suggestions, setSuggestions] = useState([]);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [trigger, setTrigger] = useState(null);
 	const inputRef = useRef(null);
+	const focusShortcutRef = useRef(null);
 
 	const [fetchSuggestions, cancelSuggestions] = useDebounce(
 		async (query, type) => {
@@ -60,6 +63,23 @@ export default function MentionInput({
 			setSuggestions([]);
 		}
 	}, [value]);
+
+	useEffect(() => {
+		focusShortcutRef.current = new shortcutMaker(['control', 'q'], () => {
+			if (inputRef.current) {
+				inputRef.current.focus();
+			}
+		});
+	}, []);
+
+	useEffect(() => {
+		const onKeyDown = e => {
+			// e.preventDefault();
+			focusShortcutRef.current.onPress(e.key);
+		};
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, []);
 
 	const handleKeyDown = e => {
 		if (e.key === 'ArrowDown' && suggestions.length) {

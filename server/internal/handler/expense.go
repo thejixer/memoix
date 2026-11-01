@@ -51,6 +51,10 @@ func (h *Handler) HandleCreateExpense(c echo.Context) error {
 }
 
 func (h *Handler) HandleGetDailyExpenses(c echo.Context) error {
+	// this function has a bug, it is not handling UTC date conversions properly,
+	// an expense which is in 12:18AM Tehran Time is not part of its correspondent date
+	// and it is coming for tomorrow, to be tested later. 
+	// actually, the repository function needs to be edited. 
 	sinceStr := c.QueryParam("since")
 	untilStr := c.QueryParam("until")
 	since, until := utils.ParseDateRange(sinceStr, untilStr)

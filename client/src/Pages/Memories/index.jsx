@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import httpClient from '../../utils/http';
 import Notes from '../../components/notes';
 import CreateNote from './create-note';
@@ -6,9 +6,7 @@ import CreateExpense from './create-expense';
 import Header from './header';
 import Tabs from '../../components/tabs';
 import Analytics from './analytics';
-import { onKeysPress } from '../../utils/onKeysPress';
-
-let keys = []
+import shortcutMaker from '../../utils/shortcutMaker';
 
 const CreateModal = ({ isOpen, closeModal }) => {
 	return isOpen ? (
@@ -56,11 +54,6 @@ const CreateModal = ({ isOpen, closeModal }) => {
 };
 
 export default () => {
-	// const getFirstDayOfCurrentMonth = () => {
-	// 	const now = new Date();
-	// 	return new Date(now.getFullYear(), now.getMonth(), 1);
-	// };
-
 	const [since, setSince] = useState(null);
 	const [until, setUntil] = useState(null);
 	const [query, setQuery] = useState('');
@@ -68,6 +61,7 @@ export default () => {
 	const [topMentions, setTopMentions] = useState([]);
 	const [notes, setNotes] = useState([]);
 	const [stats, setStats] = useState(null);
+	const CreateRef = useRef(null);
 
 	// modals
 	const [isModalOpen, setModalOpen] = useState(false); // create note/expense modal
@@ -106,7 +100,7 @@ export default () => {
 		try {
 			const params = createURLSearchParams(q, since, until);
 			const resp = await httpClient.get(
-				`/mention/top-mentions?${params.toString()}`
+				`/mention/top-mentions?${params.toString()}`,
 			);
 			if (resp.status == 200 && resp.data) {
 				setTopMentions(resp.data);
@@ -150,11 +144,19 @@ export default () => {
 	};
 
 	useEffect(() => {
+		CreateRef.current = new shortcutMaker(['control', 'a'], () => {
+			setModalOpen(true);
+		});
+	}, []);
+
+	useEffect(() => {
 		fetchAll(query, since, until);
 	}, []);
 
 	useEffect(() => {
-		const onKeyDown = (e) => onKeysPress({ cb: () => alert("salam"), keys: ["Control", "k"], pressedKey: e.key })
+		const onKeyDown = e => {
+			CreateRef.current.onPress(e.key);
+		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, []);

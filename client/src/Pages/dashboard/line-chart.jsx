@@ -74,6 +74,7 @@ const LineChartToolTip = ({ active, payload, label, coordinate, viewBox }) => {
 			const params = createURLSearchParams(d);
 			const resp = await httpClient.get(`/tag/top-tags?${params.toString()}`);
 			if (resp.status == 200) {
+				console.log('in line chart : ', resp.data);
 				setTopTags(resp.data || []);
 				cacheRef.current[key] = {
 					...cacheRef.current[key],
@@ -211,6 +212,7 @@ const LineChartToolTip = ({ active, payload, label, coordinate, viewBox }) => {
 
 const ExpensesLineChart = ({ data }) => {
 	if (!data || !Array.isArray(data)) return null;
+	console.log('data : ', data);
 	return (
 		<div
 			style={{
