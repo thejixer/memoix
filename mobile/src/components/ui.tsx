@@ -191,10 +191,12 @@ export function DateFilterField({
   label,
   value,
   onChange,
+  compact = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const selected = value ? new Date(`${value}T12:00:00`) : new Date();
@@ -208,13 +210,18 @@ export function DateFilterField({
   };
 
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, compact && styles.compactDateField]}>
       <AppText muted style={styles.fieldLabel}>{label}</AppText>
       <View style={styles.dateFilterRow}>
-        <Pressable style={styles.input} onPress={() => setOpen(true)}>
-          <AppText>{value || 'Any date'}</AppText>
+        <Pressable
+          style={[styles.input, compact && styles.compactDateInput]}
+          onPress={() => setOpen(true)}
+        >
+          <AppText numberOfLines={1} style={compact && styles.compactDateText}>
+            {value || 'Any date'}
+          </AppText>
         </Pressable>
-        {value ? (
+        {value && !compact ? (
           <Pressable accessibilityRole="button" onPress={() => onChange('')} style={styles.clearDate}>
             <AppText accent>CLEAR</AppText>
           </Pressable>
@@ -298,6 +305,9 @@ const styles = StyleSheet.create({
   field: { gap: 6, flex: 1 },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
+  compactDateField: { flex: 0, width: 112 },
+  compactDateInput: { flex: 1, minHeight: 34, paddingHorizontal: 8, paddingVertical: 5 },
+  compactDateText: { fontSize: 10 },
   fieldLabel: { fontSize: 11 },
   input: {
     minHeight: 46,

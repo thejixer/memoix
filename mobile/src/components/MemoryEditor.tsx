@@ -5,9 +5,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Memory, MemoryType, Person, Tag } from '../domain';
 import { theme } from '../theme';
-import { saveMemory } from '../database';
+import { deleteMemory, saveMemory } from '../database';
 import EntityInput from './EntityInput';
 import { AppText, Button, DateField, Page, TextField } from './ui';
 
@@ -28,6 +29,7 @@ export default function MemoryEditor({
   onClose,
   onSaved,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const [type, setType] = useState<MemoryType>(memory?.type ?? 'memo');
   const [content, setContent] = useState(memory?.content ?? '');
   const [amount, setAmount] = useState(
@@ -75,8 +77,30 @@ export default function MemoryEditor({
     }
   };
 
+  const remove = () => {
+    if (!memory || saving) return;
+    Alert.alert('Delete memory?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            await deleteMemory(memory.id);
+            await onSaved();
+          } catch (error) {
+            Alert.alert('Could not delete memory', error instanceof Error ? error.message : String(error));
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
-    <Page style={styles.page}>
+    <Page style={[styles.page, { paddingTop: Math.max(insets.top, 16) }]}>
         <View style={styles.header}>
           <Pressable onPress={close}><AppText accent>{'< CLOSE'}</AppText></Pressable>
           <AppText bold accent>{memory ? 'EDIT MEMORY' : 'NEW MEMORY'}</AppText>
@@ -135,6 +159,14 @@ export default function MemoryEditor({
           onPress={submit}
           disabled={saving}
         />
+        {memory && (
+          <Button
+            title="DELETE MEMORY"
+            onPress={remove}
+            danger
+            disabled={saving}
+          />
+        )}
     </Page>
   );
 }

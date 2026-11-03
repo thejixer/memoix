@@ -1,75 +1,154 @@
 import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { Memory, Person } from '../domain';
+import { Memory, Person, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 
 export default function PeopleScreen({
   people,
   memories,
+  tags,
   onOpenPerson,
+  onOpenTag,
 }: {
   people: Person[];
   memories: Memory[];
+  tags: Tag[];
   onOpenPerson: (person: Person | null) => void;
+  onOpenTag: (tag: Tag | null) => void;
 }) {
-  const [query, setQuery] = useState('');
+  const [tab, setTab] = useState<'persons' | 'tags'>('persons');
+  const [personQuery, setPersonQuery] = useState('');
+  const [tagQuery, setTagQuery] = useState('');
   const shownPeople = useMemo(
     () =>
       people.filter(item =>
         `${item.fullName} ${item.mentionKey}`
           .toLocaleLowerCase()
-          .includes(query.toLocaleLowerCase()),
+          .includes(personQuery.toLocaleLowerCase()),
       ),
-    [people, query],
+    [people, personQuery],
+  );
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const memory of memories) {
+      for (const name of new Set(memory.tags.map(value => value.toLocaleLowerCase()))) {
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [memories]);
+  const shownTags = useMemo(
+    () =>
+      tags
+        .filter(item => item.name.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()))
+        .map(item => ({
+          tag: item,
+          count: tagCounts.get(item.name.toLocaleLowerCase()) ?? 0,
+        }))
+        .sort((a, b) => b.count - a.count || a.tag.name.localeCompare(b.tag.name)),
+    [tagCounts, tagQuery, tags],
   );
 
   return (
     <Page>
-      <View style={styles.titleRow}>
-        <AppText bold accent style={styles.title}>PERSONS</AppText>
-        <Button title="+ ADD" onPress={() => onOpenPerson(null)} style={styles.addButton} />
+      <View style={styles.header}>
+        <AppText bold accent style={styles.title}>PEOPLE &amp; TAGS</AppText>
       </View>
-      <TextField label="FIND A PERSON" value={query} onChangeText={setQuery} />
-      {shownPeople.length ? (
-        shownPeople.map(item => (
-          <Pressable key={item.id} onPress={() => onOpenPerson(item)}>
-            <Card style={styles.personCard}>
-              {item.avatarBase64 ? (
-                <Image
-                  source={{
-                    uri: `data:${item.avatarMimeType ?? 'image/jpeg'};base64,${item.avatarBase64}`,
-                  }}
-                  style={styles.listAvatar}
-                />
-              ) : (
-                <View style={[styles.listAvatar, styles.avatarEmpty]}>
-                  <AppText accent>{item.fullName.slice(0, 1).toUpperCase()}</AppText>
-                </View>
-              )}
-              <View style={styles.personInfo}>
-                <AppText bold>{item.fullName}</AppText>
-                <AppText muted>@{item.mentionKey}</AppText>
-                {item.description ? (
-                  <AppText muted numberOfLines={1}>{item.description}</AppText>
-                ) : null}
-              </View>
-              <AppText muted>
-                {memories.filter(memory => memory.people.includes(item.mentionKey)).length}
-              </AppText>
-            </Card>
+      <View style={styles.tabs}>
+        {(['persons', 'tags'] as const).map(item => (
+          <Pressable
+            key={item}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === item }}
+            onPress={() => setTab(item)}
+            style={[styles.tab, tab === item && styles.activeTab]}
+          >
+            <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
           </Pressable>
-        ))
+        ))}
+      </View>
+      {tab === 'persons' ? (
+        <>
+          <View style={styles.sectionHeader}>
+            <TextField label="FIND A PERSON" value={personQuery} onChangeText={setPersonQuery} />
+            <Button title="+ ADD" onPress={() => onOpenPerson(null)} style={styles.addButton} />
+          </View>
+          {shownPeople.length ? (
+            shownPeople.map(item => (
+              <Pressable key={item.id} onPress={() => onOpenPerson(item)}>
+                <Card style={styles.personCard}>
+                  {item.avatarBase64 ? (
+                    <Image
+                      source={{
+                        uri: `data:${item.avatarMimeType ?? 'image/jpeg'};base64,${item.avatarBase64}`,
+                      }}
+                      style={styles.listAvatar}
+                    />
+                  ) : (
+                    <View style={[styles.listAvatar, styles.avatarEmpty]}>
+                      <AppText accent>
+                        {(item.fullName.trim() || item.mentionKey).slice(0, 1).toUpperCase()}
+                      </AppText>
+                    </View>
+                  )}
+                  <View style={styles.personInfo}>
+                    {item.fullName.trim() ? (
+                      <AppText bold>{item.fullName}</AppText>
+                    ) : null}
+                    <AppText muted>
+                      @{item.mentionKey}{item.fullName.trim() ? '' : ' · handle'}
+                    </AppText>
+                    {item.description ? (
+                      <AppText muted numberOfLines={1}>{item.description}</AppText>
+                    ) : null}
+                  </View>
+                  <AppText muted>
+                    {memories.filter(memory => memory.people.includes(item.mentionKey)).length}
+                  </AppText>
+                </Card>
+              </Pressable>
+            ))
+          ) : (
+            <Card><AppText muted>No persons yet. Add one or mention someone in a memory.</AppText></Card>
+          )}
+        </>
       ) : (
-        <Card><AppText muted>No persons yet. Add one or mention someone in a memory.</AppText></Card>
+        <>
+          <View style={styles.sectionHeader}>
+            <TextField label="FIND A TAG" value={tagQuery} onChangeText={setTagQuery} />
+            <Button title="+ ADD" onPress={() => onOpenTag(null)} style={styles.addButton} />
+          </View>
+          {shownTags.length ? (
+            <View style={styles.tagGrid}>
+              {shownTags.map(({ tag, count }) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={tag.id}
+                  onPress={() => onOpenTag(tag)}
+                  style={styles.tagChip}
+                >
+                  <AppText bold accent numberOfLines={1}>#{tag.name}</AppText>
+                  <AppText muted>{count}</AppText>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Card><AppText muted>No tags yet. Add one or use #tag in a memory.</AppText></Card>
+          )}
+        </>
       )}
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center' },
   title: { fontSize: 19, letterSpacing: 1.5 },
-  addButton: { minHeight: 38 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1C5522' },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  activeTab: { borderBottomColor: '#39FF14' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  addButton: { minHeight: 46, paddingHorizontal: 10 },
   personCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   personInfo: { flex: 1, gap: 2 },
   listAvatar: { height: 48, width: 48, borderRadius: 24 },
@@ -79,5 +158,18 @@ const styles = StyleSheet.create({
     borderColor: '#39FF5B',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagChip: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#1C5522',
+    borderRadius: 16,
+    backgroundColor: '#0A120B',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
 });

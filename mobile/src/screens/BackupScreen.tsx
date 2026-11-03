@@ -39,7 +39,7 @@ export default function BackupScreen({
 
   return (
     <Page>
-      <AppText bold accent style={styles.title}>BACKUP / RESTORE</AppText>
+      <AppText bold accent style={styles.title}>SETTINGS</AppText>
       <Card>
         <AppText bold>OFFLINE DATA</AppText>
         <AppText muted>

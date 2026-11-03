@@ -1,20 +1,11 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deletePerson, savePerson } from '../database';
 import { localDateKey, Memory, Person } from '../domain';
 import { theme } from '../theme';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
-
-const emptyPerson = {
-  fullName: '',
-  mentionKey: '',
-  description: '',
-  birthdate: null,
-  phoneNumber: '',
-  avatarBase64: null,
-  avatarMimeType: null,
-};
 
 export default function PersonEditorScreen({
   person,
@@ -27,7 +18,10 @@ export default function PersonEditorScreen({
   onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<'memories' | 'edit'>(person ? 'memories' : 'edit');
   const [fullName, setFullName] = useState(person?.fullName ?? '');
+  const [mentionKey, setMentionKey] = useState(person?.mentionKey ?? '');
   const [description, setDescription] = useState(person?.description ?? '');
   const [birthdate, setBirthdate] = useState(person?.birthdate ?? '');
   const [phoneNumber, setPhoneNumber] = useState(person?.phoneNumber ?? '');
@@ -65,8 +59,8 @@ export default function PersonEditorScreen({
   };
 
   const save = async () => {
-    if (!fullName.trim()) {
-      Alert.alert('Name required', 'Enter the person’s full name.');
+    if (!mentionKey.trim()) {
+      Alert.alert('Handle required', 'Enter the handle used in @mentions.');
       return;
     }
     if (birthdate && !isValidDate(birthdate)) {
@@ -76,7 +70,7 @@ export default function PersonEditorScreen({
     try {
       await savePerson({
         ...(person ? { id: person.id } : {}),
-        ...emptyPerson,
+        mentionKey: mentionKey.trim().replace(/^@/, ''),
         fullName: fullName.trim(),
         description: description.trim(),
         birthdate: birthdate.trim() || null,
@@ -112,67 +106,132 @@ export default function PersonEditorScreen({
   };
 
   return (
-    <Page>
-      <Pressable onPress={onClose}><AppText accent>{'< BACK'}</AppText></Pressable>
-      <AppText bold accent style={styles.title}>
-        {person ? 'EDIT PERSON' : 'NEW PERSON'}
-      </AppText>
-      <Pressable onPress={pickAvatar} style={styles.avatarButton}>
-        {avatarBase64 ? (
-          <Image
-            source={{ uri: `data:${avatarMimeType ?? 'image/jpeg'};base64,${avatarBase64}` }}
-            style={styles.avatar}
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarEmpty]}>
-            <AppText accent style={styles.avatarGlyph}>+</AppText>
-          </View>
-        )}
-        <AppText muted>CHOOSE AVATAR</AppText>
+    <Page style={[styles.page, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <Pressable onPress={onClose} style={styles.backButton}>
+        <AppText accent>{'< BACK'}</AppText>
       </Pressable>
-      <TextField label="FULL NAME" value={fullName} onChangeText={setFullName} />
-      <TextField
-        label="BIRTHDATE · YYYY-MM-DD"
-        value={birthdate}
-        onChangeText={setBirthdate}
-        placeholder="Optional"
-        autoCapitalize="none"
-      />
-      <TextField
-        label="PHONE NUMBER"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        keyboardType="phone-pad"
-        placeholder="Optional"
-      />
-      <TextField
-        label="DESCRIPTION"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-        placeholder="A few details about this person"
-      />
-      <AppText muted style={styles.hint}>
-        Their mention key will be @{fullName.trim().replace(/\s+/g, '_').toLocaleLowerCase() || 'name'}.
-      </AppText>
-      <Button title="SAVE PERSON" onPress={save} />
-      {person ? <Button title="DELETE PERSON" danger onPress={remove} /> : null}
-      {linkedMemories.length > 0 && (
-        <Card>
+      <View style={styles.personHeader}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Choose person avatar"
+          onPress={pickAvatar}
+          style={styles.avatarButton}
+        >
+          {avatarBase64 ? (
+            <Image
+              source={{ uri: `data:${avatarMimeType ?? 'image/jpeg'};base64,${avatarBase64}` }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={[styles.avatar, styles.avatarEmpty]}>
+              <AppText accent style={styles.avatarGlyph}>
+                {(mentionKey.trim().replace(/^@/, '') || '?').slice(0, 1).toUpperCase()}
+              </AppText>
+            </View>
+          )}
+          <AppText muted style={styles.avatarLabel}>CHOOSE AVATAR</AppText>
+        </Pressable>
+        <View style={styles.personHeading}>
+          <AppText muted style={styles.handleLabel}>HANDLE</AppText>
+          <AppText bold accent style={styles.handle}>
+            @{mentionKey.trim().replace(/^@/, '') || 'handle'}
+          </AppText>
+          {fullName.trim() ? (
+            <AppText muted numberOfLines={1}>{fullName.trim()}</AppText>
+          ) : null}
+          <AppText bold accent style={styles.title}>
+            {person ? 'PERSON' : 'NEW PERSON'}
+          </AppText>
+        </View>
+      </View>
+      <View style={styles.tabs}>
+        {(['memories', 'edit'] as const).map(item => (
+          <Pressable
+            key={item}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === item }}
+            onPress={() => setTab(item)}
+            style={[styles.tab, tab === item && styles.activeTab]}
+          >
+            <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
+          </Pressable>
+        ))}
+      </View>
+      {tab === 'memories' ? (
+        <View style={styles.memories}>
           <AppText bold accent>LINKED MEMORIES · {linkedMemories.length}</AppText>
-          {linkedMemories.slice(0, 5).map(memory => (
-            <AppText key={memory.id} numberOfLines={2}>{memory.content}</AppText>
-          ))}
-        </Card>
+          {linkedMemories.length ? (
+            linkedMemories.map(memory => (
+              <Card key={memory.id}>
+                <AppText>{memory.content}</AppText>
+                <AppText muted style={styles.memoryDate}>
+                  {new Date(memory.occurredAt).toLocaleString()}
+                </AppText>
+              </Card>
+            ))
+          ) : (
+            <Card><AppText muted>No linked memories yet.</AppText></Card>
+          )}
+        </View>
+      ) : (
+        <View style={styles.form}>
+          <TextField
+            label="HANDLE · USED IN @MENTIONS"
+            value={mentionKey}
+            onChangeText={setMentionKey}
+            placeholder="e.g. ali"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TextField
+            label="FULL NAME · OPTIONAL"
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Display name"
+          />
+          <TextField
+            label="BIRTHDATE · YYYY-MM-DD"
+            value={birthdate}
+            onChangeText={setBirthdate}
+            placeholder="Optional"
+            autoCapitalize="none"
+          />
+          <TextField
+            label="PHONE NUMBER"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+            placeholder="Optional"
+          />
+          <TextField
+            label="DESCRIPTION"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            placeholder="A few details about this person"
+          />
+          <AppText muted style={styles.hint}>
+            Memories use @{mentionKey.trim().replace(/^@/, '') || 'handle'}; the full name is only for display.
+          </AppText>
+          <Button title="SAVE PERSON" onPress={save} />
+          {person ? <Button title="DELETE PERSON" danger onPress={remove} /> : null}
+        </View>
       )}
     </Page>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { gap: 14 },
+  backButton: { alignSelf: 'flex-start', paddingVertical: 2 },
+  personHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  personHeading: { flex: 1, gap: 3 },
+  handleLabel: { fontSize: 10, letterSpacing: 1 },
+  handle: { fontSize: 18 },
   title: { fontSize: 19, letterSpacing: 1.5 },
-  avatarButton: { alignItems: 'center', gap: 8, paddingVertical: 8 },
-  avatar: { width: 100, height: 100, borderRadius: 50 },
+  avatarButton: { alignItems: 'center', gap: 4, paddingVertical: 4 },
+  avatarLabel: { fontSize: 8 },
+  avatar: { width: 76, height: 76, borderRadius: 38 },
   avatarEmpty: {
     backgroundColor: theme.surfaceRaised,
     borderWidth: 1,
@@ -181,6 +240,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarGlyph: { fontSize: 26 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  activeTab: { borderBottomColor: theme.green },
+  form: { gap: 14 },
+  memories: { gap: 10 },
+  memoryDate: { fontSize: 10 },
   hint: { fontSize: 10 },
 });
 

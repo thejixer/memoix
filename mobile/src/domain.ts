@@ -111,6 +111,35 @@ export function filterMemories(
   });
 }
 
+export type EntityUsage = { name: string; usageCount: number };
+
+export function getTopEntities(
+  memories: Memory[],
+  dimension: 'tags' | 'people',
+  excluded: string[] = [],
+): EntityUsage[] {
+  const excludedNames = new Set(excluded.map(value => value.toLocaleLowerCase()));
+  const counts = new Map<string, number>();
+  const displayNames = new Map<string, string>();
+
+  for (const memory of memories) {
+    const names = new Set(memory[dimension].map(value => value.toLocaleLowerCase()));
+    for (const name of names) {
+      if (excludedNames.has(name)) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+      if (!displayNames.has(name)) displayNames.set(name, name);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, usageCount]) => ({
+      name: displayNames.get(name) ?? name,
+      usageCount,
+    }))
+    .sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name))
+    .slice(0, 10);
+}
+
 export type GapStats = {
   count: number;
   firstDate: string | null;

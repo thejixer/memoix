@@ -32,7 +32,9 @@ export default function EntityInput({
       marker === '@'
         ? people.map(person => ({
             token: `@${person.mentionKey}`,
-            label: person.fullName,
+            label: person.fullName.trim()
+              ? `${person.fullName} · @${person.mentionKey}`
+              : `@${person.mentionKey}`,
           }))
         : marker === '#'
           ? tags.map(tag => ({ token: `#${tag.name}`, label: `#${tag.name}` }))

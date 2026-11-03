@@ -10,7 +10,6 @@ import {
   Person,
   Tag,
   extractEntities,
-  mentionKey,
 } from './domain';
 
 const DATABASE_NAME = 'memoix.db';
@@ -268,8 +267,10 @@ export async function savePerson(
   input: Omit<Person, 'id'> & { id?: number },
 ): Promise<void> {
   const db = await getDatabase();
-  const key = mentionKey(input.fullName);
-  if (!key) throw new Error('Person full name is required.');
+  const key = input.mentionKey.trim().replace(/^@/, '').toLocaleLowerCase();
+  if (!/^[\p{L}\p{N}_]+$/u.test(key)) {
+    throw new Error('Enter a handle using letters, numbers, and underscores.');
+  }
 
   await db.withTransactionAsync(async () => {
     if (input.id) {
