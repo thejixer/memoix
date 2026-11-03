@@ -22,6 +22,8 @@ export type Person = {
   avatarMimeType: string | null;
 };
 
+export type UpcomingBirthday = { person: Person; date: Date; daysUntil: number };
+
 export type Tag = { id: number; name: string };
 
 export type Entities = {
@@ -50,6 +52,48 @@ export function localDateKey(value: string | Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function getUpcomingBirthdays(
+  people: Person[],
+  today = new Date(),
+  daysAhead = 7,
+): UpcomingBirthday[] {
+  const todayDate = new Date(today);
+  todayDate.setHours(12, 0, 0, 0);
+  const todayKey = localDateKey(todayDate);
+  const thisYear = todayDate.getFullYear();
+  const todayUtc = Date.UTC(
+    todayDate.getFullYear(),
+    todayDate.getMonth(),
+    todayDate.getDate(),
+  );
+
+  return people.flatMap(person => {
+    if (!person.birthdate) return [];
+    const birthdate = new Date(`${person.birthdate}T12:00:00`);
+    if (
+      !Number.isFinite(birthdate.getTime()) ||
+      localDateKey(birthdate) !== person.birthdate
+    ) {
+      return [];
+    }
+
+    const month = birthdate.getMonth();
+    const day = birthdate.getDate();
+    const birthdayForYear = (year: number) => {
+      const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      return new Date(year, month, month === 1 && day === 29 && !isLeapYear ? 28 : day, 12);
+    };
+
+    let date = birthdayForYear(thisYear);
+    if (localDateKey(date) < todayKey) date = birthdayForYear(thisYear + 1);
+    const daysUntil = Math.round(
+      (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - todayUtc) /
+        86_400_000,
+    );
+    return daysUntil <= daysAhead ? [{ person, date, daysUntil }] : [];
+  }).sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
 export function extractEntities(content: string): Entities {
@@ -109,54 +153,6 @@ export function filterMemories(
       matchesEntityFilter(memory, entities)
     );
   });
-}
-
-const HEATMAP_DAYS = 36 * 7;
-
-function parseLocalDate(value: string): Date | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}T12:00:00`);
-  return Number.isFinite(date.getTime()) && localDateKey(date) === value
-    ? date
-    : null;
-}
-
-function shiftDate(date: Date, days: number): Date {
-  const shifted = new Date(date);
-  shifted.setDate(shifted.getDate() + days);
-  return shifted;
-}
-
-export function getHeatmapDateRange(
-  since: string,
-  until: string,
-  today = new Date(),
-): { start: Date; end: Date } {
-  let start = since ? parseLocalDate(since) : null;
-  let end = until ? parseLocalDate(until) : null;
-
-  if (start && end && start > end) [start, end] = [end, start];
-
-  if (!start && !end) {
-    end = new Date(today);
-    end.setHours(12, 0, 0, 0);
-    start = shiftDate(end, -(HEATMAP_DAYS - 1));
-  } else if (start && !end) {
-    end = shiftDate(start, HEATMAP_DAYS - 1);
-  } else if (!start && end) {
-    start = shiftDate(end, -(HEATMAP_DAYS - 1));
-  } else if (start && end) {
-    const calendarDays =
-      (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
-        Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
-        86_400_000 +
-      1;
-    if (calendarDays > HEATMAP_DAYS) {
-      start = shiftDate(end, -(HEATMAP_DAYS - 1));
-    }
-  }
-
-  return { start: start!, end: end! };
 }
 
 export type EntityUsage = { name: string; usageCount: number };

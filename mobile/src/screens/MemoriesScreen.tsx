@@ -5,10 +5,11 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import {
   calculateGapStats,
   filterMemories,
-  getHeatmapDateRange,
+  getUpcomingBirthdays,
   getTopEntities,
   extractEntities,
   Memory,
@@ -60,12 +61,13 @@ export default function MemoriesScreen({
   const [query, setQuery] = useState('');
   const [since, setSince] = useState('');
   const [until, setUntil] = useState('');
+  const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
   const filtered = useMemo(
     () => filterMemories(memories, query, since, until),
     [memories, query, since, until],
   );
   const stats = useMemo(() => calculateGapStats(filtered), [filtered]);
-  const heatmapRange = getHeatmapDateRange(since, until);
+  const upcomingBirthdays = useMemo(() => getUpcomingBirthdays(people), [people]);
   const searchedEntities = useMemo(() => extractEntities(query), [query]);
   const topTags = useMemo(
     () => getTopEntities(filtered, 'tags', searchedEntities.tags),
@@ -164,6 +166,16 @@ export default function MemoriesScreen({
             )}
           </ScrollView>
         </View>
+        {upcomingBirthdays.length > 0 && (
+          <View style={styles.birthdays}>
+            {upcomingBirthdays.map(({ person, date }) => (
+              <AppText key={person.id} muted>
+                {(person.fullName.trim() || `@${person.mentionKey}`)} has birthday on{' '}
+                <AppText accent>{date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</AppText>.
+              </AppText>
+            ))}
+          </View>
+        )}
         <View style={styles.tabs}>
           {(['memories', 'analytics'] as const).map(item => (
             <Pressable
@@ -183,16 +195,40 @@ export default function MemoriesScreen({
               filtered.map(memory => (
                 <Pressable key={memory.id} onPress={() => onEdit(memory)}>
                   <Card style={styles.memoryCard}>
-                    {memory.type === 'expense' && (
-                      <View style={styles.expenseBadge}>
-                        <AppText bold style={styles.expenseBadgeText}>
-                          EXPENSE{memory.amount != null
-                            ? ` · ${memory.amount.toLocaleString()} TOMAN`
-                            : ''}
+                    {memory.type === 'expense' ? (
+                      <>
+                        <Svg
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                          pointerEvents="none"
+                          style={styles.expenseRibbon}
+                          width={26}
+                          height={26}
+                          viewBox="0 0 26 26"
+                        >
+                          <Defs>
+                            <LinearGradient id={`expenseRibbonGradient${memory.id}`} x1="0" y1="1" x2="1" y2="0">
+                              <Stop offset="0" stopColor="#EEFF00" stopOpacity="0.9" />
+                              <Stop offset="0.55" stopColor="#37FF00" stopOpacity="0.75" />
+                              <Stop offset="1" stopColor="#37FF00" />
+                            </LinearGradient>
+                          </Defs>
+                          <Path
+                            d="M0 18 L18 0 H23 L0 23 Z"
+                            fill={`url(#expenseRibbonGradient${memory.id})`}
+                          />
+                        </Svg>
+                        <AppText>
+                          <AppText bold style={styles.expenseAmount}>
+                            {memory.amount?.toLocaleString() ?? ''}
+                          </AppText>
+                          {' - '}
+                          {memory.content}
                         </AppText>
-                      </View>
+                      </>
+                    ) : (
+                      <AppText>{memory.content}</AppText>
                     )}
-                    <AppText>{memory.content}</AppText>
                     <AppText muted style={styles.date}>{dateLabel(memory.occurredAt)}</AppText>
                   </Card>
                 </Pressable>
@@ -202,21 +238,38 @@ export default function MemoriesScreen({
         ) : (
           <View style={styles.analytics}>
             <Card>
-              <AppText bold accent>
-                ACTIVITY · {heatmapRange.start.toLocaleDateString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })} – {heatmapRange.end.toLocaleDateString([], {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </AppText>
+              <View style={styles.heatmapHeader}>
+                <AppText bold accent>ACTIVITY</AppText>
+                <View style={styles.yearNavigation}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${heatmapYear - 1}`}
+                    onPress={() => setHeatmapYear(year => year - 1)}
+                    hitSlop={8}
+                  >
+                    <AppText accent style={styles.yearArrow}>‹</AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show next year after ${heatmapYear}`}
+                    onPress={() => setHeatmapYear(year => year + 1)}
+                    hitSlop={8}
+                  >
+                    <AppText bold accent style={styles.yearLabel}>{heatmapYear}</AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${heatmapYear + 1}`}
+                    onPress={() => setHeatmapYear(year => year + 1)}
+                    hitSlop={8}
+                  >
+                    <AppText accent style={styles.yearArrow}>›</AppText>
+                  </Pressable>
+                </View>
+              </View>
               <ActivityHeatmap
                 memories={filtered}
-                start={heatmapRange.start}
-                end={heatmapRange.end}
+                year={heatmapYear}
               />
               <AppText muted style={styles.hint}>
                 {filtered.length} matching memories across your selected filters.
@@ -254,24 +307,21 @@ const styles = StyleSheet.create({
   clearButton: { minHeight: 46, paddingHorizontal: 10 },
   dateRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 8, marginTop: -8 },
   topEntities: { gap: 2, paddingHorizontal: 2 },
+  birthdays: { gap: 2 },
   entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   entityText: { fontSize: 10, lineHeight: 18 },
   emptyEntityText: { fontSize: 9 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },
+  heatmapHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  yearNavigation: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  yearArrow: { fontSize: 24, lineHeight: 28 },
+  yearLabel: { fontSize: 14, minWidth: 42, textAlign: 'center' },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   activeTab: { borderBottomColor: theme.green },
   list: { gap: 10 },
-  memoryCard: { gap: 10 },
-  expenseBadge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: theme.green,
-    borderRadius: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    backgroundColor: theme.surfaceRaised,
-  },
-  expenseBadgeText: { color: theme.green, fontSize: 9, letterSpacing: 0.4 },
+  memoryCard: { gap: 10, position: 'relative', overflow: 'hidden' },
+  expenseRibbon: { position: 'absolute', top: 0, left: 0 },
+  expenseAmount: { color: theme.green },
   date: { fontSize: 10 },
   analytics: { gap: 12 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

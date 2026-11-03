@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { deletePerson, savePerson } from '../database';
 import { localDateKey, Memory, Person } from '../domain';
 import { theme } from '../theme';
-import { AppText, Button, Card, Page, TextField } from '../components/ui';
+import { AppText, Button, Card, OptionalDateField, Page, TextField } from '../components/ui';
 
 export default function PersonEditorScreen({
   person,
@@ -62,7 +62,7 @@ export default function PersonEditorScreen({
       return;
     }
     if (birthdate && !isValidDate(birthdate)) {
-      Alert.alert('Invalid birthdate', 'Enter a real date in YYYY-MM-DD format.');
+      Alert.alert('Invalid birthdate', 'Choose a valid calendar date.');
       return;
     }
     try {
@@ -187,12 +187,10 @@ export default function PersonEditorScreen({
             onChangeText={setFullName}
             placeholder="Display name"
           />
-          <TextField
-            label="BIRTHDATE · YYYY-MM-DD"
-            value={birthdate}
-            onChangeText={setBirthdate}
-            placeholder="Optional"
-            autoCapitalize="none"
+          <OptionalDateField
+            label="BIRTHDATE"
+            value={birthdate ? new Date(`${birthdate}T12:00:00`) : null}
+            onChange={date => setBirthdate(date ? localDateKey(date) : '')}
           />
           <TextField
             label="PHONE NUMBER"

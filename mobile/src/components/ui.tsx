@@ -193,6 +193,56 @@ export function DateField({
   );
 }
 
+export function OptionalDateField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Date | null;
+  onChange: (date: Date | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value ?? new Date();
+  const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
+    setOpen(false);
+    if (event.type === 'set' && date) onChange(date);
+  };
+
+  return (
+    <View style={styles.field}>
+      <AppText muted style={styles.fieldLabel}>{label}</AppText>
+      <View style={styles.optionalDateRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setOpen(true)}
+          style={[styles.input, styles.optionalDateInput]}
+        >
+          <AppText>{value ? value.toLocaleDateString() : 'Not specified'}</AppText>
+        </Pressable>
+        {value ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear date"
+            onPress={() => onChange(null)}
+            style={styles.clearDate}
+          >
+            <AppText accent>CLEAR</AppText>
+          </Pressable>
+        ) : null}
+      </View>
+      {open && (
+        <DateTimePicker
+          value={selected}
+          mode="date"
+          display="default"
+          onChange={onPickerChange}
+        />
+      )}
+    </View>
+  );
+}
+
 export function DateFilterField({
   label,
   value,
@@ -220,7 +270,7 @@ export function DateFilterField({
       <AppText muted style={[styles.fieldLabel, compact && styles.compactDateLabel]}>
         {label}
       </AppText>
-      <View style={[styles.dateFilterRow, compact && styles.compactDateRow]}>
+      <View style={styles.dateFilterRow}>
         <Pressable
           style={[styles.input, compact && styles.compactDateInput]}
           onPress={() => setOpen(true)}
@@ -312,11 +362,12 @@ const styles = StyleSheet.create({
   dangerText: { color: theme.danger },
   field: { gap: 6, flex: 1 },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionalDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionalDateInput: { flex: 1 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
-  compactDateField: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  compactDateField: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   compactDateLabel: { width: 38, fontSize: 9 },
-  compactDateRow: { flex: 1 },
-  compactDateInput: { flex: 1, minWidth: 0, minHeight: 34, paddingHorizontal: 6, paddingVertical: 4 },
+  compactDateInput: { width: 92, minHeight: 34, paddingHorizontal: 6, paddingVertical: 4 },
   compactDateText: { fontSize: 9 },
   fieldLabel: { fontSize: 11 },
   input: {

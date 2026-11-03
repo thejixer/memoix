@@ -6,31 +6,28 @@ import { AppText } from './ui';
 
 export default function ActivityHeatmap({
   memories,
-  start,
-  end,
+  year,
 }: {
   memories: Memory[];
-  start: Date;
-  end: Date;
+  year: number;
 }) {
   const { weeks, counts } = useMemo(() => {
+    const start = new Date(year, 0, 1, 12);
+    const end = new Date(year, 11, 31, 12);
+    const gridStart = new Date(year, 0, 1 - start.getDay(), 12);
     const rangeDays =
       (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
-        Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
-        86_400_000 +
-      1;
+        Date.UTC(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate())) /
+      86_400_000 + 1;
+    const gridDays = Math.ceil(rangeDays / 7) * 7;
     const result: (Date | null)[][] = [];
-    for (let offset = 0; offset < rangeDays; offset += 7) {
+    for (let offset = 0; offset < gridDays; offset += 7) {
       const week: (Date | null)[] = [];
       for (let day = 0; day < 7; day += 1) {
         const dayOffset = offset + day;
-        if (dayOffset >= rangeDays) {
-          week.push(null);
-          continue;
-        }
-        const date = new Date(start);
-        date.setDate(start.getDate() + dayOffset);
-        week.push(date);
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + dayOffset);
+        week.push(date.getFullYear() === year ? date : null);
       }
       result.push(week);
     }
@@ -43,27 +40,19 @@ export default function ActivityHeatmap({
       values.set(key, (values.get(key) ?? 0) + 1);
     }
     return { weeks: result, counts: values };
-  }, [end, memories, start]);
+  }, [memories, year]);
 
   const max = Math.max(1, ...counts.values());
   const monthLabels = weeks.map((week, index) => {
     const date = week.find((day): day is Date => day !== null);
     if (!date) return '';
     const month = date.getMonth();
-    const previousDate = index > 0
-      ? weeks[index - 1].find((day): day is Date => day !== null)
-      : undefined;
-    const previousMonth = previousDate?.getMonth() ?? -1;
-    return month === previousMonth
-      ? ''
-      : date.toLocaleString('default', { month: 'short' });
+    const previousMonth = index > 0
+      ? weeks[index - 1].find((day): day is Date => day !== null)?.getMonth() ?? -1
+      : -1;
+    return month === previousMonth ? '' : date.toLocaleString('default', { month: 'short' });
   });
-  const firstDay = start.getDay();
-  const dayLabels = Array.from({ length: 7 }, (_, index) =>
-    new Date(2024, 0, 7 + ((firstDay + index) % 7)).toLocaleString('default', {
-      weekday: 'narrow',
-    }),
-  );
+  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <View style={styles.wrapper}>
