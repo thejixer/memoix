@@ -5,7 +5,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Memory, MemoryType, Person, Tag } from '../domain';
 import { theme } from '../theme';
 import { deleteMemory, saveMemory } from '../database';
@@ -29,7 +28,6 @@ export default function MemoryEditor({
   onClose,
   onSaved,
 }: Props) {
-  const insets = useSafeAreaInsets();
   const [type, setType] = useState<MemoryType>(memory?.type ?? 'memo');
   const [content, setContent] = useState(memory?.content ?? '');
   const [amount, setAmount] = useState(
@@ -100,7 +98,7 @@ export default function MemoryEditor({
   };
 
   return (
-    <Page style={[styles.page, { paddingTop: Math.max(insets.top, 16) }]}>
+    <Page style={styles.page}>
         <View style={styles.header}>
           <Pressable onPress={close}><AppText accent>{'< CLOSE'}</AppText></Pressable>
           <AppText bold accent>{memory ? 'EDIT MEMORY' : 'NEW MEMORY'}</AppText>
@@ -117,24 +115,41 @@ export default function MemoryEditor({
             />
           ))}
         </View>
-        {type === 'expense' && (
-          <TextField
-            label="AMOUNT · TOMAN"
-            value={amount}
-            onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
+        {type === 'expense' ? (
+          <View style={styles.expenseFields}>
+            <View style={styles.amountField}>
+              <TextField
+                label="AMOUNT"
+                value={amount}
+                onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+              />
+              <AppText muted style={styles.amountUnit}>TOMAN</AppText>
+            </View>
+            <View style={styles.expenseContent}>
+              <EntityInput
+                label="MEMORY"
+                value={content}
+                onChangeText={setContent}
+                people={people}
+                tags={tags}
+                memories={memories}
+                multiline
+              />
+            </View>
+          </View>
+        ) : (
+          <EntityInput
+            label="MEMORY"
+            value={content}
+            onChangeText={setContent}
+            people={people}
+            tags={tags}
+            memories={memories}
+            multiline
           />
         )}
-        <EntityInput
-          label="MEMORY"
-          value={content}
-          onChangeText={setContent}
-          people={people}
-          tags={tags}
-          memories={memories}
-          multiline
-        />
         <DateField
           label="DATE"
           value={occurredAt}
@@ -182,5 +197,9 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 52 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1 },
+  expenseFields: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  amountField: { width: 112, gap: 4 },
+  amountUnit: { fontSize: 9, textAlign: 'center' },
+  expenseContent: { flex: 1, minWidth: 0 },
   helper: { fontSize: 11, color: theme.muted },
 });

@@ -14,6 +14,7 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 
 export function Page({
@@ -25,15 +26,20 @@ export function Page({
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const insets = useSafeAreaInsets();
+  const safeAreaPadding = {
+    paddingTop: 16 + insets.top,
+    paddingBottom: 16 + insets.bottom,
+  };
   const content = scroll ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[styles.pageContent, style]}
+      contentContainerStyle={[styles.pageContent, style, safeAreaPadding]}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.pageContent, styles.fill, style]}>{children}</View>
+    <View style={[styles.pageContent, styles.fill, style, safeAreaPadding]}>{children}</View>
   );
   return <View style={styles.page}>{content}</View>;
 }
@@ -211,8 +217,10 @@ export function DateFilterField({
 
   return (
     <View style={[styles.field, compact && styles.compactDateField]}>
-      <AppText muted style={styles.fieldLabel}>{label}</AppText>
-      <View style={styles.dateFilterRow}>
+      <AppText muted style={[styles.fieldLabel, compact && styles.compactDateLabel]}>
+        {label}
+      </AppText>
+      <View style={[styles.dateFilterRow, compact && styles.compactDateRow]}>
         <Pressable
           style={[styles.input, compact && styles.compactDateInput]}
           onPress={() => setOpen(true)}
@@ -305,9 +313,11 @@ const styles = StyleSheet.create({
   field: { gap: 6, flex: 1 },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
-  compactDateField: { flex: 0, width: 112 },
-  compactDateInput: { flex: 1, minHeight: 34, paddingHorizontal: 8, paddingVertical: 5 },
-  compactDateText: { fontSize: 10 },
+  compactDateField: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  compactDateLabel: { width: 38, fontSize: 9 },
+  compactDateRow: { flex: 1 },
+  compactDateInput: { flex: 1, minWidth: 0, minHeight: 34, paddingHorizontal: 6, paddingVertical: 4 },
+  compactDateText: { fontSize: 9 },
   fieldLabel: { fontSize: 11 },
   input: {
     minHeight: 46,

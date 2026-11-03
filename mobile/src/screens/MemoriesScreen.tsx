@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import {
   calculateGapStats,
   filterMemories,
+  getHeatmapDateRange,
   getTopEntities,
   extractEntities,
   Memory,
@@ -63,6 +65,7 @@ export default function MemoriesScreen({
     [memories, query, since, until],
   );
   const stats = useMemo(() => calculateGapStats(filtered), [filtered]);
+  const heatmapRange = getHeatmapDateRange(since, until);
   const searchedEntities = useMemo(() => extractEntities(query), [query]);
   const topTags = useMemo(
     () => getTopEntities(filtered, 'tags', searchedEntities.tags),
@@ -120,24 +123,33 @@ export default function MemoriesScreen({
           />
         </View>
         <View style={styles.topEntities}>
-          <View style={styles.entityRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
             {topTags.length ? (
               topTags.map((tag, index) => (
                 <Pressable key={tag.name} onPress={() => addEntityFilter(`#${tag.name}`)}>
-                  <AppText style={[styles.entityText, { color: entityColors[index % entityColors.length] }]}>
+                  <AppText numberOfLines={1} style={[styles.entityText, { color: entityColors[index % entityColors.length] }]}>
                     {tag.name} ({tag.usageCount})
                   </AppText>
                 </Pressable>
               ))
             ) : (
-              <AppText accent style={styles.emptyEntityText}>NO AVAILABLE TAGS</AppText>
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE TAGS</AppText>
             )}
-          </View>
-          <View style={styles.entityRow}>
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
             {topMentions.length ? (
               topMentions.map((mention, index) => (
                 <Pressable key={mention.name} onPress={() => addEntityFilter(`@${mention.name}`)}>
                   <AppText
+                    numberOfLines={1}
                     style={[
                       styles.entityText,
                       { color: entityColors[(index + topTags.length) % entityColors.length] },
@@ -148,9 +160,9 @@ export default function MemoriesScreen({
                 </Pressable>
               ))
             ) : (
-              <AppText accent style={styles.emptyEntityText}>NO AVAILABLE MENTIONS</AppText>
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE MENTIONS</AppText>
             )}
-          </View>
+          </ScrollView>
         </View>
         <View style={styles.tabs}>
           {(['memories', 'analytics'] as const).map(item => (
@@ -190,8 +202,22 @@ export default function MemoriesScreen({
         ) : (
           <View style={styles.analytics}>
             <Card>
-              <AppText bold accent>ACTIVITY · LAST 12 MONTHS</AppText>
-              <ActivityHeatmap memories={filtered} />
+              <AppText bold accent>
+                ACTIVITY · {heatmapRange.start.toLocaleDateString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })} – {heatmapRange.end.toLocaleDateString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </AppText>
+              <ActivityHeatmap
+                memories={filtered}
+                start={heatmapRange.start}
+                end={heatmapRange.end}
+              />
               <AppText muted style={styles.hint}>
                 {filtered.length} matching memories across your selected filters.
               </AppText>
@@ -226,9 +252,9 @@ const styles = StyleSheet.create({
   filterRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   search: { flex: 1 },
   clearButton: { minHeight: 46, paddingHorizontal: 10 },
-  dateRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: -8 },
+  dateRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 8, marginTop: -8 },
   topEntities: { gap: 2, paddingHorizontal: 2 },
-  entityRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6 },
+  entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   entityText: { fontSize: 10, lineHeight: 18 },
   emptyEntityText: { fontSize: 9 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },

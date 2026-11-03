@@ -52,12 +52,6 @@ const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
-    marginVertical: 5,
-    borderRadius: 24,
-    backgroundColor: theme.surfaceRaised,
-    borderWidth: 1,
-    borderColor: theme.green,
   },
   plusIcon: {
     width: 22,

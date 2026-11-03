@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deletePerson, savePerson } from '../database';
 import { localDateKey, Memory, Person } from '../domain';
 import { theme } from '../theme';
@@ -18,7 +17,6 @@ export default function PersonEditorScreen({
   onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'memories' | 'edit'>(person ? 'memories' : 'edit');
   const [fullName, setFullName] = useState(person?.fullName ?? '');
   const [mentionKey, setMentionKey] = useState(person?.mentionKey ?? '');
@@ -106,7 +104,7 @@ export default function PersonEditorScreen({
   };
 
   return (
-    <Page style={[styles.page, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+    <Page style={styles.page}>
       <Pressable onPress={onClose} style={styles.backButton}>
         <AppText accent>{'< BACK'}</AppText>
       </Pressable>

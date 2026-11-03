@@ -111,6 +111,54 @@ export function filterMemories(
   });
 }
 
+const HEATMAP_DAYS = 36 * 7;
+
+function parseLocalDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isFinite(date.getTime()) && localDateKey(date) === value
+    ? date
+    : null;
+}
+
+function shiftDate(date: Date, days: number): Date {
+  const shifted = new Date(date);
+  shifted.setDate(shifted.getDate() + days);
+  return shifted;
+}
+
+export function getHeatmapDateRange(
+  since: string,
+  until: string,
+  today = new Date(),
+): { start: Date; end: Date } {
+  let start = since ? parseLocalDate(since) : null;
+  let end = until ? parseLocalDate(until) : null;
+
+  if (start && end && start > end) [start, end] = [end, start];
+
+  if (!start && !end) {
+    end = new Date(today);
+    end.setHours(12, 0, 0, 0);
+    start = shiftDate(end, -(HEATMAP_DAYS - 1));
+  } else if (start && !end) {
+    end = shiftDate(start, HEATMAP_DAYS - 1);
+  } else if (!start && end) {
+    start = shiftDate(end, -(HEATMAP_DAYS - 1));
+  } else if (start && end) {
+    const calendarDays =
+      (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+        Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
+        86_400_000 +
+      1;
+    if (calendarDays > HEATMAP_DAYS) {
+      start = shiftDate(end, -(HEATMAP_DAYS - 1));
+    }
+  }
+
+  return { start: start!, end: end! };
+}
+
 export type EntityUsage = { name: string; usageCount: number };
 
 export function getTopEntities(
