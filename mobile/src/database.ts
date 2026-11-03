@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { File } from 'expo-file-system';
+import { Directory, File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
@@ -434,13 +434,8 @@ export async function exportBackup(): Promise<void> {
     await backup.closeAsync();
     closed = true;
     if (directoryUri) {
-      const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
-        directoryUri,
-        backupName,
-        'application/octet-stream',
-      );
       await new File(`file://${backup.databasePath}`).copy(
-        new File(destinationUri),
+        new Directory(directoryUri),
         { overwrite: true },
       );
     } else {
