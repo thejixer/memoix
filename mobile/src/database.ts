@@ -463,67 +463,72 @@ export async function restoreBackup(): Promise<boolean> {
 
   const stagedName = `memoix-restore-${Date.now()}.db`;
   const liveDb = await getDatabase();
-  const livePath = liveDb.databasePath;
-  const directory = livePath.slice(0, livePath.lastIndexOf('/'));
-  const stagedPath = `${directory}/${stagedName}`;
+  const cacheDirectoryUri = FileSystem.cacheDirectory;
+  if (!cacheDirectoryUri) throw new Error('The app cache directory is unavailable.');
+  const cacheDirectory = cacheDirectoryUri
+    .replace(/^file:\/\//, '')
+    .replace(/\/+$/, '');
+  const stagedPath = `${cacheDirectoryUri}${stagedName}`;
+  const rollbackName = `memoix-rollback-${Date.now()}.db`;
+  let staged: SQLite.SQLiteDatabase | null = null;
+  let rollback: SQLite.SQLiteDatabase | null = null;
   try {
     await FileSystem.copyAsync({ from: selection.assets[0].uri, to: stagedPath });
-    const staged = await SQLite.openDatabaseAsync(stagedName);
-    try {
-      const integrity = await staged.getFirstAsync<{ integrity_check: string }>(
-        'PRAGMA integrity_check',
-      );
-      const version = await staged.getFirstAsync<{ user_version: number }>(
-        'PRAGMA user_version',
-      );
-      const requiredTables = await staged.getAllAsync<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type = 'table'`,
-      );
-      const names = new Set(requiredTables.map(table => table.name));
-      const isMemoixBackup =
-        integrity?.integrity_check === 'ok' &&
-        version?.user_version === DATABASE_VERSION &&
-        [
-          'memories',
-          'people',
-          'tags',
-          'places',
-          'memory_tags',
-          'memory_people',
-          'memory_places',
-        ].every(name => names.has(name));
-      if (!isMemoixBackup) {
-        throw new Error('This file is not a valid Memoix backup.');
-      }
-    } finally {
-      await staged.closeAsync();
+    staged = await SQLite.openDatabaseAsync(stagedName, {}, cacheDirectory);
+    const integrity = await staged.getFirstAsync<{ integrity_check: string }>(
+      'PRAGMA integrity_check',
+    );
+    const version = await staged.getFirstAsync<{ user_version: number }>(
+      'PRAGMA user_version',
+    );
+    const requiredTables = await staged.getAllAsync<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type = 'table'`,
+    );
+    const names = new Set(requiredTables.map(table => table.name));
+    const isMemoixBackup =
+      integrity?.integrity_check === 'ok' &&
+      version?.user_version === DATABASE_VERSION &&
+      [
+        'memories',
+        'people',
+        'tags',
+        'places',
+        'memory_tags',
+        'memory_people',
+        'memory_places',
+      ].every(name => names.has(name));
+    if (!isMemoixBackup) {
+      throw new Error('This file is not a valid Memoix backup.');
     }
 
-    const oldPath = `${livePath}.before-restore`;
-    await FileSystem.deleteAsync(oldPath, { idempotent: true });
-    await liveDb.closeAsync();
-    database = null;
-    await FileSystem.moveAsync({ from: livePath, to: oldPath });
-    await FileSystem.moveAsync({ from: stagedPath, to: livePath });
-    await getDatabase();
-    await FileSystem.deleteAsync(oldPath, { idempotent: true });
+    rollback = await SQLite.openDatabaseAsync(rollbackName, {}, cacheDirectory);
+    await SQLite.backupDatabaseAsync({ sourceDatabase: liveDb, destDatabase: rollback });
+    try {
+      await SQLite.backupDatabaseAsync({ sourceDatabase: staged, destDatabase: liveDb });
+    } catch (error) {
+      try {
+        await SQLite.backupDatabaseAsync({ sourceDatabase: rollback, destDatabase: liveDb });
+      } catch (rollbackError) {
+        const restoreMessage = error instanceof Error ? error.message : String(error);
+        const rollbackMessage =
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        throw new Error(
+          `Restore failed (${restoreMessage}), and the previous data could not be recovered (${rollbackMessage}).`,
+        );
+      }
+      throw error;
+    }
     return true;
-  } catch (error) {
-    if (database) {
-      await database.closeAsync();
-      database = null;
-    }
-    const oldPath = `${livePath}.before-restore`;
-    const oldExists = await FileSystem.getInfoAsync(oldPath).then(info => info.exists);
-    if (oldExists) {
-      const liveExists = await FileSystem.getInfoAsync(livePath).then(info => info.exists);
-      if (liveExists) await FileSystem.deleteAsync(livePath, { idempotent: true });
-      await FileSystem.moveAsync({ from: oldPath, to: livePath });
-    }
-    await getDatabase();
-    throw error;
   } finally {
-    await FileSystem.deleteAsync(stagedPath, { idempotent: true });
+    if (staged) await staged.closeAsync();
+    if (rollback) await rollback.closeAsync();
+    if ((await FileSystem.getInfoAsync(stagedPath)).exists) {
+      await SQLite.deleteDatabaseAsync(stagedName, cacheDirectory);
+    }
+    const rollbackPath = `${cacheDirectoryUri}${rollbackName}`;
+    if ((await FileSystem.getInfoAsync(rollbackPath)).exists) {
+      await SQLite.deleteDatabaseAsync(rollbackName, cacheDirectory);
+    }
   }
 }
 
