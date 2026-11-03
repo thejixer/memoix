@@ -367,7 +367,13 @@ const styles = StyleSheet.create({
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
   compactDateField: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   compactDateLabel: { width: 38, fontSize: 9 },
-  compactDateInput: { width: 92, minHeight: 34, paddingHorizontal: 6, paddingVertical: 4 },
+  compactDateInput: { 
+    minWidth: 70,
+    minHeight: 34,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
   compactDateText: { fontSize: 9 },
   fieldLabel: { fontSize: 11 },
   input: {

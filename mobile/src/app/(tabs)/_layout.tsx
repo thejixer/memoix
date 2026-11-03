@@ -8,10 +8,11 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarIcon: () => null,
+        tabBarIconStyle: { display: 'none' },   // removes the empty icon slot
         tabBarActiveTintColor: theme.green,
         tabBarInactiveTintColor: theme.muted,
         tabBarLabelStyle: { fontFamily: theme.fontBold, fontSize: 8 },
+        tabBarItemStyle: { justifyContent: 'center' },  // vertically centers the label
         tabBarStyle: {
           backgroundColor: '#080D08',
           borderTopColor: theme.border,
@@ -48,28 +49,31 @@ export default function TabLayout() {
   );
 }
 
+const PLUS_LENGTH = 12;
+const PLUS_THICKNESS = 2;
+
 const styles = StyleSheet.create({
   createButton: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   plusIcon: {
-    width: 5,
-    height: 5,
+    width: PLUS_LENGTH,
+    height: PLUS_LENGTH,
     alignItems: 'center',
     justifyContent: 'center',
   },
   plusHorizontal: {
     position: 'absolute',
-    width: 5,
-    height: 5,
+    width: PLUS_LENGTH,
+    height: PLUS_THICKNESS,
     borderRadius: 1,
     backgroundColor: theme.green,
   },
   plusVertical: {
     position: 'absolute',
-    width: 5,
-    height: 5,
+    width: PLUS_THICKNESS,
+    height: PLUS_LENGTH,
     borderRadius: 1,
     backgroundColor: theme.green,
   },
