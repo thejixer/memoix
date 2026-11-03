@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import { deleteMemory } from '../database';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import {
   calculateGapStats,
   filterMemories,
+  getUpcomingBirthdays,
+  getTopEntities,
+  extractEntities,
   Memory,
   Person,
   Tag,
 } from '../domain';
-import { theme } from '../theme';
+import { entityColors, theme } from '../theme';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import EntityInput from '../components/EntityInput';
 import { AppText, Button, Card, DateFilterField, Page } from '../components/ui';
@@ -22,9 +25,7 @@ type Props = {
   memories: Memory[];
   people: Person[];
   tags: Tag[];
-  onCreate: () => void;
   onEdit: (memory: Memory) => void;
-  onChanged: () => Promise<void>;
 };
 
 function dateLabel(value: string) {
@@ -54,150 +55,273 @@ export default function MemoriesScreen({
   memories,
   people,
   tags,
-  onCreate,
   onEdit,
-  onChanged,
 }: Props) {
   const [tab, setTab] = useState<'memories' | 'analytics'>('memories');
   const [query, setQuery] = useState('');
   const [since, setSince] = useState('');
   const [until, setUntil] = useState('');
+  const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
   const filtered = useMemo(
     () => filterMemories(memories, query, since, until),
     [memories, query, since, until],
   );
   const stats = useMemo(() => calculateGapStats(filtered), [filtered]);
+  const upcomingBirthdays = useMemo(() => getUpcomingBirthdays(people), [people]);
+  const searchedEntities = useMemo(() => extractEntities(query), [query]);
+  const topTags = useMemo(
+    () => getTopEntities(filtered, 'tags', searchedEntities.tags),
+    [filtered, searchedEntities.tags],
+  );
+  const topMentions = useMemo(
+    () => getTopEntities(filtered, 'people', searchedEntities.people),
+    [filtered, searchedEntities.people],
+  );
 
-  const remove = (memory: Memory) => {
-    Alert.alert('Delete memory?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteMemory(memory.id);
-            await onChanged();
-          } catch (error) {
-            Alert.alert('Could not delete memory', error instanceof Error ? error.message : String(error));
-          }
-        },
-      },
-    ]);
+  const addEntityFilter = (token: string) => {
+    const nextQuery = `${query.trim()} ${token} `.trimStart();
+    setQuery(nextQuery);
   };
 
   return (
-    <Page>
-      <View style={styles.titleRow}>
-        <AppText bold accent style={styles.title}>MEMORIES</AppText>
-        <Button title="+ NEW" onPress={onCreate} style={styles.newButton} />
-      </View>
-      <EntityInput
-        label="FILTER BY ENTITIES ONLY"
-        value={query}
-        onChangeText={setQuery}
-        people={people}
-        tags={tags}
-        memories={memories}
-      />
-      <AppText muted style={styles.hint}>
-        Plain text is ignored. Add #tag, @person, or &amp;place to filter.
-      </AppText>
-      <View style={styles.dateRow}>
-        <DateFilterField
-          label="SINCE"
-          value={since}
-          onChange={setSince}
-        />
-        <DateFilterField
-          label="UNTIL"
-          value={until}
-          onChange={setUntil}
-        />
-      </View>
-      <View style={styles.tabs}>
-        {(['memories', 'analytics'] as const).map(item => (
-          <Pressable
-            key={item}
-            onPress={() => setTab(item)}
-            style={[styles.tab, tab === item && styles.activeTab]}
-          >
-            <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
-          </Pressable>
-        ))}
-      </View>
-      {tab === 'memories' ? (
-        <View style={styles.list}>
-          {filtered.length === 0 ? (
-            <Card><AppText muted>No memories match these filters.</AppText></Card>
-          ) : (
-            filtered.map(memory => (
-              <Pressable key={memory.id} onPress={() => onEdit(memory)}>
-                <Card style={styles.memoryCard}>
-                  <View style={styles.memoryTop}>
-                    <AppText bold accent>
-                      {memory.type === 'expense' ? 'EXPENSE' : 'MEMO'}
-                      {memory.amount != null ? `  ·  ${memory.amount.toLocaleString()} Toman` : ''}
-                    </AppText>
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={event => {
-                        event.stopPropagation();
-                        remove(memory);
-                      }}
-                    >
-                      <AppText style={styles.delete}>DELETE</AppText>
-                    </Pressable>
-                  </View>
-                  <AppText>{memory.content}</AppText>
-                  <AppText muted style={styles.date}>{dateLabel(memory.occurredAt)}</AppText>
-                </Card>
-              </Pressable>
-            ))
-          )}
+    <View style={styles.screen}>
+      <Page style={styles.page}>
+        <View style={styles.titleRow}>
+          <AppText bold accent style={styles.title}>MEMORIES</AppText>
         </View>
-      ) : (
-        <View style={styles.analytics}>
-          <Card>
-            <AppText bold accent>ACTIVITY · LAST 12 MONTHS</AppText>
-            <ActivityHeatmap memories={filtered} />
-            <AppText muted style={styles.hint}>
-              {filtered.length} matching memories across your selected filters.
-            </AppText>
-          </Card>
-          <View style={styles.statsGrid}>
-            <Stat label="TOTAL" value={String(stats.count)} />
-            <Stat label="MEAN GAP" value={days(stats.mean)} />
-            <Stat label="MEDIAN GAP" value={days(stats.median)} />
-            <Stat label="STD DEV" value={days(stats.standardDeviation)} />
-            <Stat label="MIN GAP" value={days(stats.minimum)} />
-            <Stat label="MAX GAP" value={days(stats.maximum)} />
+        <View style={styles.filterRow}>
+          <View style={styles.search}>
+            <EntityInput
+              value={query}
+              onChangeText={setQuery}
+              people={people}
+              tags={tags}
+              memories={memories}
+            />
           </View>
-          <Card>
-            <AppText muted>FIRST MEMORY</AppText>
-            <AppText accent>{stats.firstDate ? dateLabel(stats.firstDate) : '—'}</AppText>
-            <AppText muted>LAST MEMORY</AppText>
-            <AppText accent>{stats.lastDate ? dateLabel(stats.lastDate) : '—'}</AppText>
-          </Card>
+          <Button
+            title="CLEAR"
+            secondary
+            onPress={() => {
+              setQuery('');
+              setSince('');
+              setUntil('');
+            }}
+            style={styles.clearButton}
+          />
         </View>
-      )}
-    </Page>
+        <View style={styles.dateRow}>
+          <DateFilterField
+            compact
+            label="SINCE"
+            value={since}
+            onChange={setSince}
+          />
+          <DateFilterField
+            compact
+            label="UNTIL"
+            value={until}
+            onChange={setUntil}
+          />
+        </View>
+        <View style={styles.topEntities}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
+            {topTags.length ? (
+              topTags.map((tag, index) => (
+                <Pressable key={tag.name} onPress={() => addEntityFilter(`#${tag.name}`)}>
+                  <AppText numberOfLines={1} style={[styles.entityText, { color: entityColors[index % entityColors.length] }]}>
+                    {tag.name} ({tag.usageCount})
+                  </AppText>
+                </Pressable>
+              ))
+            ) : (
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE TAGS</AppText>
+            )}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
+            {topMentions.length ? (
+              topMentions.map((mention, index) => (
+                <Pressable key={mention.name} onPress={() => addEntityFilter(`@${mention.name}`)}>
+                  <AppText
+                    numberOfLines={1}
+                    style={[
+                      styles.entityText,
+                      { color: entityColors[(index + topTags.length) % entityColors.length] },
+                    ]}
+                  >
+                    @{mention.name} ({mention.usageCount})
+                  </AppText>
+                </Pressable>
+              ))
+            ) : (
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE MENTIONS</AppText>
+            )}
+          </ScrollView>
+        </View>
+        {upcomingBirthdays.length > 0 && (
+          <View style={styles.birthdays}>
+            {upcomingBirthdays.map(({ person, date }) => (
+              <AppText key={person.id} muted>
+                {(person.fullName.trim() || `@${person.mentionKey}`)} has birthday on{' '}
+                <AppText accent>{date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</AppText>.
+              </AppText>
+            ))}
+          </View>
+        )}
+        <View style={styles.tabs}>
+          {(['memories', 'analytics'] as const).map(item => (
+            <Pressable
+              key={item}
+              onPress={() => setTab(item)}
+              style={[styles.tab, tab === item && styles.activeTab]}
+            >
+              <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
+            </Pressable>
+          ))}
+        </View>
+        {tab === 'memories' ? (
+          <View style={styles.list}>
+            {filtered.length === 0 ? (
+              <Card><AppText muted>No memories match these filters.</AppText></Card>
+            ) : (
+              filtered.map(memory => (
+                <Pressable key={memory.id} onPress={() => onEdit(memory)}>
+                  <Card style={styles.memoryCard}>
+                    {memory.type === 'expense' ? (
+                      <>
+                        <Svg
+                          accessibilityElementsHidden
+                          importantForAccessibility="no"
+                          pointerEvents="none"
+                          style={styles.expenseRibbon}
+                          width={26}
+                          height={26}
+                          viewBox="0 0 26 26"
+                        >
+                          <Defs>
+                            <LinearGradient id={`expenseRibbonGradient${memory.id}`} x1="0" y1="1" x2="1" y2="0">
+                              <Stop offset="0" stopColor="#EEFF00" stopOpacity="0.9" />
+                              <Stop offset="0.55" stopColor="#37FF00" stopOpacity="0.75" />
+                              <Stop offset="1" stopColor="#37FF00" />
+                            </LinearGradient>
+                          </Defs>
+                          <Path
+                            d="M0 18 L18 0 H23 L0 23 Z"
+                            fill={`url(#expenseRibbonGradient${memory.id})`}
+                          />
+                        </Svg>
+                        <AppText>
+                          <AppText bold style={styles.expenseAmount}>
+                            {memory.amount?.toLocaleString() ?? ''}
+                          </AppText>
+                          {' - '}
+                          {memory.content}
+                        </AppText>
+                      </>
+                    ) : (
+                      <AppText>{memory.content}</AppText>
+                    )}
+                    <AppText muted style={styles.date}>{dateLabel(memory.occurredAt)}</AppText>
+                  </Card>
+                </Pressable>
+              ))
+            )}
+          </View>
+        ) : (
+          <View style={styles.analytics}>
+            <Card>
+              <View style={styles.heatmapHeader}>
+                <AppText bold accent>ACTIVITY</AppText>
+                <View style={styles.yearNavigation}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${heatmapYear - 1}`}
+                    onPress={() => setHeatmapYear(year => year - 1)}
+                    hitSlop={8}
+                  >
+                    <AppText accent style={styles.yearArrow}>‹</AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show next year after ${heatmapYear}`}
+                    onPress={() => setHeatmapYear(year => year + 1)}
+                    hitSlop={8}
+                  >
+                    <AppText bold accent style={styles.yearLabel}>{heatmapYear}</AppText>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show ${heatmapYear + 1}`}
+                    onPress={() => setHeatmapYear(year => year + 1)}
+                    hitSlop={8}
+                  >
+                    <AppText accent style={styles.yearArrow}>›</AppText>
+                  </Pressable>
+                </View>
+              </View>
+              <ActivityHeatmap
+                memories={filtered}
+                year={heatmapYear}
+              />
+              <AppText muted style={styles.hint}>
+                {filtered.length} matching memories across your selected filters.
+              </AppText>
+            </Card>
+            <View style={styles.statsGrid}>
+              <Stat label="TOTAL" value={String(stats.count)} />
+              <Stat label="MEAN GAP" value={days(stats.mean)} />
+              <Stat label="MEDIAN GAP" value={days(stats.median)} />
+              <Stat label="STD DEV" value={days(stats.standardDeviation)} />
+              <Stat label="MIN GAP" value={days(stats.minimum)} />
+              <Stat label="MAX GAP" value={days(stats.maximum)} />
+            </View>
+            <Card>
+              <AppText muted>FIRST MEMORY</AppText>
+              <AppText accent>{stats.firstDate ? dateLabel(stats.firstDate) : '—'}</AppText>
+              <AppText muted>LAST MEMORY</AppText>
+              <AppText accent>{stats.lastDate ? dateLabel(stats.lastDate) : '—'}</AppText>
+            </Card>
+          </View>
+        )}
+      </Page>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  page: { paddingBottom: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 19, letterSpacing: 1.5 },
-  newButton: { minHeight: 38 },
   hint: { fontSize: 10 },
-  dateRow: { flexDirection: 'row', gap: 8 },
+  filterRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  search: { flex: 1 },
+  clearButton: { minHeight: 46, paddingHorizontal: 10 },
+  dateRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 8, marginTop: -8 },
+  topEntities: { gap: 2, paddingHorizontal: 2 },
+  birthdays: { gap: 2 },
+  entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
+  entityText: { fontSize: 10, lineHeight: 18 },
+  emptyEntityText: { fontSize: 9 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },
+  heatmapHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  yearNavigation: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  yearArrow: { fontSize: 24, lineHeight: 28 },
+  yearLabel: { fontSize: 14, minWidth: 42, textAlign: 'center' },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   activeTab: { borderBottomColor: theme.green },
   list: { gap: 10 },
-  memoryCard: { gap: 10 },
-  memoryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  delete: { color: theme.danger, fontSize: 10 },
+  memoryCard: { gap: 10, position: 'relative', overflow: 'hidden' },
+  expenseRibbon: { position: 'absolute', top: 0, left: 0 },
+  expenseAmount: { color: theme.green },
   date: { fontSize: 10 },
   analytics: { gap: 12 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

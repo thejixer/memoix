@@ -1,65 +1,83 @@
-import { useMemo } from 'react';
+import { ComponentRef, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Memory } from '../domain';
+import { localDateKey, Memory } from '../domain';
 import { theme } from '../theme';
 import { AppText } from './ui';
 
-function dayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export default function ActivityHeatmap({ memories }: { memories: Memory[] }) {
+export default function ActivityHeatmap({
+  memories,
+  year,
+}: {
+  memories: Memory[];
+  year: number;
+}) {
+  const chartRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const { weeks, counts } = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setDate(start.getDate() - 363);
-    start.setDate(start.getDate() - start.getDay());
-    const result: Date[][] = [];
-    const cursor = new Date(start);
-    while (cursor <= now) {
-      const week: Date[] = [];
+    const start = new Date(year, 0, 1, 12);
+    const end = new Date(year, 11, 31, 12);
+    const gridStart = new Date(year, 0, 1 - start.getDay(), 12);
+    const rangeDays =
+      (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+        Date.UTC(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate())) /
+      86_400_000 + 1;
+    const gridDays = Math.ceil(rangeDays / 7) * 7;
+    const result: (Date | null)[][] = [];
+    for (let offset = 0; offset < gridDays; offset += 7) {
+      const week: (Date | null)[] = [];
       for (let day = 0; day < 7; day += 1) {
-        week.push(new Date(cursor));
-        cursor.setDate(cursor.getDate() + 1);
+        const dayOffset = offset + day;
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + dayOffset);
+        week.push(date.getFullYear() === year ? date : null);
       }
       result.push(week);
     }
     const values = new Map<string, number>();
+    const firstDayKey = localDateKey(start);
+    const lastDayKey = localDateKey(end);
     for (const memory of memories) {
-      const key = dayKey(new Date(memory.occurredAt));
+      const key = localDateKey(memory.occurredAt);
+      if (key < firstDayKey || key > lastDayKey) continue;
       values.set(key, (values.get(key) ?? 0) + 1);
     }
     return { weeks: result, counts: values };
-  }, [memories]);
+  }, [memories, year]);
 
   const max = Math.max(1, ...counts.values());
   const monthLabels = weeks.map((week, index) => {
-    const month = week[0].getMonth();
-    const previousMonth = index > 0 ? weeks[index - 1][0].getMonth() : -1;
-    return month === previousMonth
-      ? ''
-      : week[0].toLocaleString('default', { month: 'short' });
+    const date = week.find((day): day is Date => day !== null);
+    if (!date) return '';
+    const month = date.getMonth();
+    const previousMonth = index > 0
+      ? weeks[index - 1].find((day): day is Date => day !== null)?.getMonth() ?? -1
+      : -1;
+    return month === previousMonth ? '' : date.toLocaleString('default', { month: 'short' });
   });
+  const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.labels}>
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+        {dayLabels.map((day, index) => (
           <AppText key={`${day}-${index}`} muted style={styles.dayLabel}>{day}</AppText>
         ))}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
-        <View>
-          <View style={[styles.months, { width: weeks.length * 9 }]}>
+      <ScrollView
+        ref={chartRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chart}
+        onContentSizeChange={() => chartRef.current?.scrollToEnd({ animated: false })}
+      >
+        <View style={{ width: weeks.length * 7 }}>
+          <View style={[styles.months, { width: weeks.length * 7 }]}>
             {monthLabels.map((month, index) =>
               month ? (
                 <AppText
                   key={`month-${index}`}
                   muted
                   numberOfLines={1}
-                  style={[styles.monthLabel, { left: index * 9 }]}
+                  style={[styles.monthLabel, { left: index * 7 }]}
                 >
                   {month}
                 </AppText>
@@ -70,12 +88,14 @@ export default function ActivityHeatmap({ memories }: { memories: Memory[] }) {
             {weeks.map((week, index) => (
               <View key={index} style={styles.week}>
                 {week.map((date, dayIndex) => {
-                  const count = counts.get(dayKey(date)) ?? 0;
+                  if (!date) return <View key={dayIndex} style={styles.emptyCell} />;
+                  const key = localDateKey(date);
+                  const count = counts.get(key) ?? 0;
                   const opacity = count === 0 ? 0.16 : 0.35 + (count / max) * 0.65;
                   return (
                     <View
                       key={dayIndex}
-                      accessibilityLabel={`${dayKey(date)}: ${count} memories`}
+                      accessibilityLabel={`${key}: ${count} memories`}
                       style={[styles.cell, { opacity, backgroundColor: theme.green }]}
                     />
                   );
@@ -91,12 +111,13 @@ export default function ActivityHeatmap({ memories }: { memories: Memory[] }) {
 
 const styles = StyleSheet.create({
   wrapper: { flexDirection: 'row', gap: 5 },
-  scroll: { flex: 1 },
+  chart: { flex: 1 },
   labels: { justifyContent: 'space-between', paddingVertical: 1 },
-  dayLabel: { height: 11, fontSize: 8, lineHeight: 11 },
-  weeks: { flexDirection: 'row', gap: 2 },
+  dayLabel: { height: 7, fontSize: 7, lineHeight: 7 },
+  weeks: { flexDirection: 'row', gap: 1 },
   months: { position: 'relative', height: 12, marginBottom: 3 },
-  monthLabel: { position: 'absolute', width: 28, fontSize: 7, lineHeight: 10 },
-  week: { gap: 2 },
-  cell: { width: 7, height: 7, borderRadius: 2 },
+  monthLabel: { position: 'absolute', width: 25, fontSize: 7, lineHeight: 10 },
+  week: { gap: 1 },
+  cell: { width: 6, height: 6, borderRadius: 2 },
+  emptyCell: { width: 6, height: 6 },
 });

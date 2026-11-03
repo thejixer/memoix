@@ -1,8 +1,9 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { Directory, File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import {
   Entities,
   Memory,
@@ -10,12 +11,42 @@ import {
   Person,
   Tag,
   extractEntities,
-  mentionKey,
 } from './domain';
 
 const DATABASE_NAME = 'memoix.db';
 const DATABASE_VERSION = 1;
+const BACKUP_DIRECTORY_FILE = 'memoix-backup-directory.txt';
 let database: SQLite.SQLiteDatabase | null = null;
+
+function getBackupDirectoryPreferencePath(): string {
+  if (!FileSystem.documentDirectory) {
+    throw new Error('The app storage directory is unavailable.');
+  }
+  return `${FileSystem.documentDirectory}${BACKUP_DIRECTORY_FILE}`;
+}
+
+async function getSavedBackupDirectory(): Promise<string | null> {
+  const path = getBackupDirectoryPreferencePath();
+  const info = await FileSystem.getInfoAsync(path);
+  if (!info.exists) return null;
+  const directoryUri = (await FileSystem.readAsStringAsync(path)).trim();
+  return directoryUri || null;
+}
+
+export async function selectBackupDirectory(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    throw new Error('Choosing a backup folder is only supported on Android.');
+  }
+
+  const permissions =
+    await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!permissions.granted) return false;
+  await FileSystem.writeAsStringAsync(
+    getBackupDirectoryPreferencePath(),
+    permissions.directoryUri,
+  );
+  return true;
+}
 
 async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!database) {
@@ -268,8 +299,10 @@ export async function savePerson(
   input: Omit<Person, 'id'> & { id?: number },
 ): Promise<void> {
   const db = await getDatabase();
-  const key = mentionKey(input.fullName);
-  if (!key) throw new Error('Person full name is required.');
+  const key = input.mentionKey.trim().replace(/^@/, '').toLocaleLowerCase();
+  if (!/^[\p{L}\p{N}_]+$/u.test(key)) {
+    throw new Error('Enter a handle using letters, numbers, and underscores.');
+  }
 
   await db.withTransactionAsync(async () => {
     if (input.id) {
@@ -374,6 +407,21 @@ export async function deleteTag(id: number): Promise<void> {
 }
 
 export async function exportBackup(): Promise<void> {
+  let directoryUri: string | null = null;
+  if (Platform.OS === 'android') {
+    directoryUri = await getSavedBackupDirectory();
+    if (directoryUri) {
+      try {
+        await FileSystem.StorageAccessFramework.readDirectoryAsync(directoryUri);
+      } catch {
+        directoryUri = null;
+      }
+    }
+    if (!directoryUri && !(await selectBackupDirectory())) return;
+    directoryUri = await getSavedBackupDirectory();
+    if (!directoryUri) throw new Error('The backup folder was not saved.');
+  }
+
   const source = await getDatabase();
   const backupName = `memoix-backup-${Date.now()}.db`;
   const backup = await SQLite.openDatabaseAsync(backupName);
@@ -383,15 +431,22 @@ export async function exportBackup(): Promise<void> {
       sourceDatabase: source,
       destDatabase: backup,
     });
-    if (!(await Sharing.isAvailableAsync())) {
-      throw new Error('Sharing is not available on this device.');
-    }
     await backup.closeAsync();
     closed = true;
-    await Sharing.shareAsync(backup.databasePath, {
-      mimeType: 'application/vnd.sqlite3',
-      dialogTitle: 'Export Memoix backup',
-    });
+    if (directoryUri) {
+      await new File(`file://${backup.databasePath}`).copy(
+        new Directory(directoryUri),
+        { overwrite: true },
+      );
+    } else {
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('Sharing is not available on this device.');
+      }
+      await Sharing.shareAsync(`file://${backup.databasePath}`, {
+        mimeType: 'application/vnd.sqlite3',
+        dialogTitle: 'Export Memoix backup',
+      });
+    }
   } finally {
     if (!closed) await backup.closeAsync();
     await SQLite.deleteDatabaseAsync(backupName);
@@ -408,67 +463,72 @@ export async function restoreBackup(): Promise<boolean> {
 
   const stagedName = `memoix-restore-${Date.now()}.db`;
   const liveDb = await getDatabase();
-  const livePath = liveDb.databasePath;
-  const directory = livePath.slice(0, livePath.lastIndexOf('/'));
-  const stagedPath = `${directory}/${stagedName}`;
+  const cacheDirectoryUri = FileSystem.cacheDirectory;
+  if (!cacheDirectoryUri) throw new Error('The app cache directory is unavailable.');
+  const cacheDirectory = cacheDirectoryUri
+    .replace(/^file:\/\//, '')
+    .replace(/\/+$/, '');
+  const stagedPath = `${cacheDirectoryUri}${stagedName}`;
+  const rollbackName = `memoix-rollback-${Date.now()}.db`;
+  let staged: SQLite.SQLiteDatabase | null = null;
+  let rollback: SQLite.SQLiteDatabase | null = null;
   try {
     await FileSystem.copyAsync({ from: selection.assets[0].uri, to: stagedPath });
-    const staged = await SQLite.openDatabaseAsync(stagedName);
-    try {
-      const integrity = await staged.getFirstAsync<{ integrity_check: string }>(
-        'PRAGMA integrity_check',
-      );
-      const version = await staged.getFirstAsync<{ user_version: number }>(
-        'PRAGMA user_version',
-      );
-      const requiredTables = await staged.getAllAsync<{ name: string }>(
-        `SELECT name FROM sqlite_master WHERE type = 'table'`,
-      );
-      const names = new Set(requiredTables.map(table => table.name));
-      const isMemoixBackup =
-        integrity?.integrity_check === 'ok' &&
-        version?.user_version === DATABASE_VERSION &&
-        [
-          'memories',
-          'people',
-          'tags',
-          'places',
-          'memory_tags',
-          'memory_people',
-          'memory_places',
-        ].every(name => names.has(name));
-      if (!isMemoixBackup) {
-        throw new Error('This file is not a valid Memoix backup.');
-      }
-    } finally {
-      await staged.closeAsync();
+    staged = await SQLite.openDatabaseAsync(stagedName, {}, cacheDirectory);
+    const integrity = await staged.getFirstAsync<{ integrity_check: string }>(
+      'PRAGMA integrity_check',
+    );
+    const version = await staged.getFirstAsync<{ user_version: number }>(
+      'PRAGMA user_version',
+    );
+    const requiredTables = await staged.getAllAsync<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type = 'table'`,
+    );
+    const names = new Set(requiredTables.map(table => table.name));
+    const isMemoixBackup =
+      integrity?.integrity_check === 'ok' &&
+      version?.user_version === DATABASE_VERSION &&
+      [
+        'memories',
+        'people',
+        'tags',
+        'places',
+        'memory_tags',
+        'memory_people',
+        'memory_places',
+      ].every(name => names.has(name));
+    if (!isMemoixBackup) {
+      throw new Error('This file is not a valid Memoix backup.');
     }
 
-    const oldPath = `${livePath}.before-restore`;
-    await FileSystem.deleteAsync(oldPath, { idempotent: true });
-    await liveDb.closeAsync();
-    database = null;
-    await FileSystem.moveAsync({ from: livePath, to: oldPath });
-    await FileSystem.moveAsync({ from: stagedPath, to: livePath });
-    await getDatabase();
-    await FileSystem.deleteAsync(oldPath, { idempotent: true });
+    rollback = await SQLite.openDatabaseAsync(rollbackName, {}, cacheDirectory);
+    await SQLite.backupDatabaseAsync({ sourceDatabase: liveDb, destDatabase: rollback });
+    try {
+      await SQLite.backupDatabaseAsync({ sourceDatabase: staged, destDatabase: liveDb });
+    } catch (error) {
+      try {
+        await SQLite.backupDatabaseAsync({ sourceDatabase: rollback, destDatabase: liveDb });
+      } catch (rollbackError) {
+        const restoreMessage = error instanceof Error ? error.message : String(error);
+        const rollbackMessage =
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        throw new Error(
+          `Restore failed (${restoreMessage}), and the previous data could not be recovered (${rollbackMessage}).`,
+        );
+      }
+      throw error;
+    }
     return true;
-  } catch (error) {
-    if (database) {
-      await database.closeAsync();
-      database = null;
-    }
-    const oldPath = `${livePath}.before-restore`;
-    const oldExists = await FileSystem.getInfoAsync(oldPath).then(info => info.exists);
-    if (oldExists) {
-      const liveExists = await FileSystem.getInfoAsync(livePath).then(info => info.exists);
-      if (liveExists) await FileSystem.deleteAsync(livePath, { idempotent: true });
-      await FileSystem.moveAsync({ from: oldPath, to: livePath });
-    }
-    await getDatabase();
-    throw error;
   } finally {
-    await FileSystem.deleteAsync(stagedPath, { idempotent: true });
+    if (staged) await staged.closeAsync();
+    if (rollback) await rollback.closeAsync();
+    if ((await FileSystem.getInfoAsync(stagedPath)).exists) {
+      await SQLite.deleteDatabaseAsync(stagedName, cacheDirectory);
+    }
+    const rollbackPath = `${cacheDirectoryUri}${rollbackName}`;
+    if ((await FileSystem.getInfoAsync(rollbackPath)).exists) {
+      await SQLite.deleteDatabaseAsync(rollbackName, cacheDirectory);
+    }
   }
 }
 

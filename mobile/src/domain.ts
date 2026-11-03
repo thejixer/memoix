@@ -22,6 +22,8 @@ export type Person = {
   avatarMimeType: string | null;
 };
 
+export type UpcomingBirthday = { person: Person; date: Date; daysUntil: number };
+
 export type Tag = { id: number; name: string };
 
 export type Entities = {
@@ -50,6 +52,48 @@ export function localDateKey(value: string | Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function getUpcomingBirthdays(
+  people: Person[],
+  today = new Date(),
+  daysAhead = 7,
+): UpcomingBirthday[] {
+  const todayDate = new Date(today);
+  todayDate.setHours(12, 0, 0, 0);
+  const todayKey = localDateKey(todayDate);
+  const thisYear = todayDate.getFullYear();
+  const todayUtc = Date.UTC(
+    todayDate.getFullYear(),
+    todayDate.getMonth(),
+    todayDate.getDate(),
+  );
+
+  return people.flatMap(person => {
+    if (!person.birthdate) return [];
+    const birthdate = new Date(`${person.birthdate}T12:00:00`);
+    if (
+      !Number.isFinite(birthdate.getTime()) ||
+      localDateKey(birthdate) !== person.birthdate
+    ) {
+      return [];
+    }
+
+    const month = birthdate.getMonth();
+    const day = birthdate.getDate();
+    const birthdayForYear = (year: number) => {
+      const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      return new Date(year, month, month === 1 && day === 29 && !isLeapYear ? 28 : day, 12);
+    };
+
+    let date = birthdayForYear(thisYear);
+    if (localDateKey(date) < todayKey) date = birthdayForYear(thisYear + 1);
+    const daysUntil = Math.round(
+      (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - todayUtc) /
+        86_400_000,
+    );
+    return daysUntil <= daysAhead ? [{ person, date, daysUntil }] : [];
+  }).sort((a, b) => a.daysUntil - b.daysUntil);
 }
 
 export function extractEntities(content: string): Entities {
@@ -109,6 +153,35 @@ export function filterMemories(
       matchesEntityFilter(memory, entities)
     );
   });
+}
+
+export type EntityUsage = { name: string; usageCount: number };
+
+export function getTopEntities(
+  memories: Memory[],
+  dimension: 'tags' | 'people',
+  excluded: string[] = [],
+): EntityUsage[] {
+  const excludedNames = new Set(excluded.map(value => value.toLocaleLowerCase()));
+  const counts = new Map<string, number>();
+  const displayNames = new Map<string, string>();
+
+  for (const memory of memories) {
+    const names = new Set(memory[dimension].map(value => value.toLocaleLowerCase()));
+    for (const name of names) {
+      if (excludedNames.has(name)) continue;
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+      if (!displayNames.has(name)) displayNames.set(name, name);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, usageCount]) => ({
+      name: displayNames.get(name) ?? name,
+      usageCount,
+    }))
+    .sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name))
+    .slice(0, 10);
 }
 
 export type GapStats = {

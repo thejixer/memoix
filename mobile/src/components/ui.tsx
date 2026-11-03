@@ -14,6 +14,7 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 
 export function Page({
@@ -25,15 +26,20 @@ export function Page({
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const insets = useSafeAreaInsets();
+  const safeAreaPadding = {
+    paddingTop: 16 + insets.top,
+    paddingBottom: 16 + insets.bottom,
+  };
   const content = scroll ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[styles.pageContent, style]}
+      contentContainerStyle={[styles.pageContent, style, safeAreaPadding]}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.pageContent, styles.fill, style]}>{children}</View>
+    <View style={[styles.pageContent, styles.fill, style, safeAreaPadding]}>{children}</View>
   );
   return <View style={styles.page}>{content}</View>;
 }
@@ -187,35 +193,40 @@ export function DateField({
   );
 }
 
-export function DateFilterField({
+export function OptionalDateField({
   label,
   value,
   onChange,
 }: {
   label: string;
-  value: string;
-  onChange: (value: string) => void;
+  value: Date | null;
+  onChange: (date: Date | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const selected = value ? new Date(`${value}T12:00:00`) : new Date();
+  const selected = value ?? new Date();
   const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
     setOpen(false);
-    if (event.type !== 'set' || !date) return;
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    onChange(`${year}-${month}-${day}`);
+    if (event.type === 'set' && date) onChange(date);
   };
 
   return (
     <View style={styles.field}>
       <AppText muted style={styles.fieldLabel}>{label}</AppText>
-      <View style={styles.dateFilterRow}>
-        <Pressable style={styles.input} onPress={() => setOpen(true)}>
-          <AppText>{value || 'Any date'}</AppText>
+      <View style={styles.optionalDateRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setOpen(true)}
+          style={[styles.input, styles.optionalDateInput]}
+        >
+          <AppText>{value ? value.toLocaleDateString() : 'Not specified'}</AppText>
         </Pressable>
         {value ? (
-          <Pressable accessibilityRole="button" onPress={() => onChange('')} style={styles.clearDate}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear date"
+            onPress={() => onChange(null)}
+            style={styles.clearDate}
+          >
             <AppText accent>CLEAR</AppText>
           </Pressable>
         ) : null}
@@ -231,6 +242,69 @@ export function DateFilterField({
     </View>
   );
 }
+
+export function DateFilterField({
+  label,
+  value,
+  onChange,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value ? new Date(`${value}T12:00:00`) : new Date();
+
+  const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
+    setOpen(false);
+    if (event.type !== 'set' || !date) return;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    onChange(`${year}-${month}-${day}`);
+  };
+
+  return (
+    <View style={[styles.field, compact && styles.compactDateField]}>
+      <View style={[styles.dateFilterRow, compact && styles.compactDateRow]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} date`}
+          style={[styles.input, compact && styles.compactDateInput]}
+          onPress={() => setOpen(true)}
+          onLongPress={() => value && onChange('')}
+        >
+          <AppText numberOfLines={1} style={compact && styles.compactDateText}>
+            {label}: {value || 'N/A'}
+          </AppText>
+        </Pressable>
+        {value ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label} date`}
+            onPress={() => onChange('')}
+            style={compact ? styles.clearDateCompact : styles.clearDate}
+          >
+            <AppText accent style={compact && styles.compactDateText}>
+              ×
+            </AppText>
+          </Pressable>
+        ) : null}
+      </View>
+      {open && (
+        <DateTimePicker
+          value={selected}
+          mode="date"
+          display="default"
+          onChange={onPickerChange}
+        />
+      )}
+    </View>
+  );
+}
+
 
 export function Chip({
   title,
@@ -297,7 +371,20 @@ const styles = StyleSheet.create({
   dangerText: { color: theme.danger },
   field: { gap: 6, flex: 1 },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionalDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionalDateInput: { flex: 1 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
+  clearDateCompact: { paddingHorizontal: 4, paddingVertical: 4 },
+  compactDateField: { flex: 0, flexDirection: 'row', alignItems: 'center' },
+  compactDateRow: { flex: 0 },
+  compactDateInput: {
+    minWidth: 110,
+    minHeight: 34,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  compactDateText: { fontSize: 10 },
   fieldLabel: { fontSize: 11 },
   input: {
     minHeight: 46,

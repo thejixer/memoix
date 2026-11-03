@@ -7,9 +7,15 @@ import {
 } from 'react-native';
 import { Memory, MemoryType, Person, Tag } from '../domain';
 import { theme } from '../theme';
-import { saveMemory } from '../database';
+import { deleteMemory, saveMemory } from '../database';
 import EntityInput from './EntityInput';
 import { AppText, Button, DateField, Page, TextField } from './ui';
+
+function formatAmountInput(value: string) {
+  const [integer, ...fraction] = value.split('.');
+  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction.length ? `${groupedInteger}.${fraction.join('.')}` : groupedInteger;
+}
 
 type Props = {
   memory: Memory | null;
@@ -75,6 +81,28 @@ export default function MemoryEditor({
     }
   };
 
+  const remove = () => {
+    if (!memory || saving) return;
+    Alert.alert('Delete memory?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            await deleteMemory(memory.id);
+            await onSaved();
+          } catch (error) {
+            Alert.alert('Could not delete memory', error instanceof Error ? error.message : String(error));
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <Page style={styles.page}>
         <View style={styles.header}>
@@ -93,24 +121,41 @@ export default function MemoryEditor({
             />
           ))}
         </View>
-        {type === 'expense' && (
-          <TextField
-            label="AMOUNT · TOMAN"
-            value={amount}
-            onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
+        {type === 'expense' ? (
+          <View style={styles.expenseFields}>
+            <View style={styles.amountField}>
+              <TextField
+                label="AMOUNT"
+                value={formatAmountInput(amount)}
+                onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+              />
+              <AppText muted style={styles.amountUnit}>TOMAN</AppText>
+            </View>
+            <View style={styles.expenseContent}>
+              <EntityInput
+                label="MEMORY"
+                value={content}
+                onChangeText={setContent}
+                people={people}
+                tags={tags}
+                memories={memories}
+                multiline
+              />
+            </View>
+          </View>
+        ) : (
+          <EntityInput
+            label="MEMORY"
+            value={content}
+            onChangeText={setContent}
+            people={people}
+            tags={tags}
+            memories={memories}
+            multiline
           />
         )}
-        <EntityInput
-          label="MEMORY"
-          value={content}
-          onChangeText={setContent}
-          people={people}
-          tags={tags}
-          memories={memories}
-          multiline
-        />
         <DateField
           label="DATE"
           value={occurredAt}
@@ -135,6 +180,14 @@ export default function MemoryEditor({
           onPress={submit}
           disabled={saving}
         />
+        {memory && (
+          <Button
+            title="DELETE MEMORY"
+            onPress={remove}
+            danger
+            disabled={saving}
+          />
+        )}
     </Page>
   );
 }
@@ -150,5 +203,9 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 52 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1 },
+  expenseFields: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  amountField: { width: 112, gap: 4 },
+  amountUnit: { fontSize: 9, textAlign: 'center' },
+  expenseContent: { flex: 1, minWidth: 0 },
   helper: { fontSize: 11, color: theme.muted },
 });

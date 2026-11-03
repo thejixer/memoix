@@ -28,20 +28,45 @@ export default function EntityInput({
     if (!match || match[2].length === 0) return [];
     const marker = match[1];
     const query = match[2].toLocaleLowerCase();
-    const items =
-      marker === '@'
-        ? people.map(person => ({
-            token: `@${person.mentionKey}`,
-            label: person.fullName,
+    const mostRecentUse = new Map<string, number>();
+    for (const memory of memories) {
+      const occurredAt = new Date(memory.occurredAt).getTime();
+      if (!Number.isFinite(occurredAt)) continue;
+      for (const name of [...memory.people, ...memory.tags, ...memory.places]) {
+        const normalizedName = name.toLocaleLowerCase();
+        if (occurredAt > (mostRecentUse.get(normalizedName) ?? -Infinity)) {
+          mostRecentUse.set(normalizedName, occurredAt);
+        }
+      }
+    }
+
+    const items = marker === '@'
+      ? people.map(person => ({
+          token: `@${person.mentionKey}`,
+          label: person.fullName.trim()
+            ? `@${person.mentionKey} · ${person.fullName}`
+            : `@${person.mentionKey}`,
+          lastUsedAt: mostRecentUse.get(person.mentionKey.toLocaleLowerCase()) ?? -Infinity,
+        }))
+      : marker === '#'
+        ? tags.map(tag => ({
+            token: `#${tag.name}`,
+            label: `#${tag.name}`,
+            lastUsedAt: mostRecentUse.get(tag.name.toLocaleLowerCase()) ?? -Infinity,
           }))
-        : marker === '#'
-          ? tags.map(tag => ({ token: `#${tag.name}`, label: `#${tag.name}` }))
-          : [...new Set(memories.flatMap(memory => memory.places))].map(place => ({
-                token: `&${place}`,
-                label: `&${place}`,
-            }));
+        : [...new Map(
+            memories.flatMap(memory => memory.places).map(place => [
+              place.toLocaleLowerCase(),
+              place,
+            ]),
+          ).values()].map(place => ({
+            token: `&${place}`,
+            label: `&${place}`,
+            lastUsedAt: mostRecentUse.get(place.toLocaleLowerCase()) ?? -Infinity,
+          }));
     return items
       .filter(item => item.token.slice(1).toLocaleLowerCase().includes(query))
+      .sort((a, b) => b.lastUsedAt - a.lastUsedAt || a.token.localeCompare(b.token))
       .slice(0, 5);
   }, [memories, people, tags, value]);
 
