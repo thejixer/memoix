@@ -1,21 +1,27 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { theme } from '../../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarIconStyle: { display: 'none' },   // removes the empty icon slot
+        tabBarIconStyle: { display: 'none' },
         tabBarActiveTintColor: theme.green,
         tabBarInactiveTintColor: theme.muted,
-        tabBarLabelStyle: { fontFamily: theme.fontBold, fontSize: 8 },
-        tabBarItemStyle: { justifyContent: 'center' },  // vertically centers the label
+        tabBarLabelPosition: 'below-icon',
+        tabBarLabelStyle: { fontFamily: theme.fontBold, fontSize: 10, marginBottom: 0 },
+        tabBarItemStyle: { justifyContent: 'center', paddingVertical: 0 },
         tabBarStyle: {
           backgroundColor: '#080D08',
           borderTopColor: theme.border,
+          height: 48 + insets.bottom,
+          paddingTop: 0,
+          paddingBottom: insets.bottom,
         },
       }}
     >
@@ -62,6 +68,9 @@ const styles = StyleSheet.create({
     height: PLUS_LENGTH,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: theme.green,
+    borderRadius: 6,
   },
   plusHorizontal: {
     position: 'absolute',
