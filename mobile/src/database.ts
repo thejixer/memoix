@@ -389,7 +389,7 @@ export async function exportBackup(): Promise<void> {
     }
     await backup.closeAsync();
     closed = true;
-    await Sharing.shareAsync(backup.databasePath, {
+    await Sharing.shareAsync(`file://${backup.databasePath}`, {
       mimeType: 'application/vnd.sqlite3',
       dialogTitle: 'Export Memoix backup',
     });
