@@ -11,6 +11,12 @@ import { deleteMemory, saveMemory } from '../database';
 import EntityInput from './EntityInput';
 import { AppText, Button, DateField, Page, TextField } from './ui';
 
+function formatAmountInput(value: string) {
+  const [integer, ...fraction] = value.split('.');
+  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return fraction.length ? `${groupedInteger}.${fraction.join('.')}` : groupedInteger;
+}
+
 type Props = {
   memory: Memory | null;
   people: Person[];
@@ -120,7 +126,7 @@ export default function MemoryEditor({
             <View style={styles.amountField}>
               <TextField
                 label="AMOUNT"
-                value={amount}
+                value={formatAmountInput(amount)}
                 onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
