@@ -30,12 +30,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-provider: basic
-          cache-read-only: false
-
       - name: Install JS dependencies
         working-directory: mobile
         run: npm ci
@@ -45,6 +39,12 @@ jobs:
         env:
           CI: "1"
         run: npx expo prebuild --platform android --no-install --clean
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+          cache-read-only: false
 
       - name: Build release APK
         working-directory: mobile/android
