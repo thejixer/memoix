@@ -13,9 +13,18 @@ export default function TabLayout() {
         tabBarIconStyle: { display: 'none' },
         tabBarActiveTintColor: theme.green,
         tabBarInactiveTintColor: theme.muted,
-        tabBarLabelPosition: 'below-icon',
-        tabBarLabelStyle: { fontFamily: theme.fontBold, fontSize: 10, marginBottom: 0 },
-        tabBarItemStyle: { justifyContent: 'center', paddingVertical: 0 },
+        tabBarLabelPosition: 'beside-icon',
+        tabBarLabelStyle: {
+          fontFamily: theme.fontBold,
+          fontSize: 10,
+          marginLeft: 0,
+          marginBottom: 0,
+        },
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 0,
+        },
         tabBarStyle: {
           backgroundColor: '#080D08',
           borderTopColor: theme.border,

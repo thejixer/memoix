@@ -288,7 +288,7 @@ export function DateFilterField({
             style={compact ? styles.clearDateCompact : styles.clearDate}
           >
             <AppText accent style={compact && styles.compactDateText}>
-              {compact ? '×' : 'CLEAR'}
+              ×
             </AppText>
           </Pressable>
         ) : null}
