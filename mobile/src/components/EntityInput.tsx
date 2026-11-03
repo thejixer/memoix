@@ -44,7 +44,7 @@ export default function EntityInput({
       ? people.map(person => ({
           token: `@${person.mentionKey}`,
           label: person.fullName.trim()
-            ? `${person.fullName} · @${person.mentionKey}`
+            ? `@${person.mentionKey} · ${person.fullName}`
             : `@${person.mentionKey}`,
           lastUsedAt: mostRecentUse.get(person.mentionKey.toLocaleLowerCase()) ?? -Infinity,
         }))

@@ -138,7 +138,7 @@ export default function PersonEditorScreen({
             <AppText muted numberOfLines={1}>{fullName.trim()}</AppText>
           ) : null}
           <AppText bold accent style={styles.title}>
-            {person ? 'PERSON' : 'NEW PERSON'}
+            {person ? '' : 'NEW PERSON'}
           </AppText>
         </View>
       </View>
