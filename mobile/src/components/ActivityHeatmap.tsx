@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ComponentRef, useMemo, useRef } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { localDateKey, Memory } from '../domain';
 import { theme } from '../theme';
 import { AppText } from './ui';
@@ -11,6 +11,7 @@ export default function ActivityHeatmap({
   memories: Memory[];
   year: number;
 }) {
+  const chartRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const { weeks, counts } = useMemo(() => {
     const start = new Date(year, 0, 1, 12);
     const end = new Date(year, 11, 31, 12);
@@ -61,41 +62,49 @@ export default function ActivityHeatmap({
           <AppText key={`${day}-${index}`} muted style={styles.dayLabel}>{day}</AppText>
         ))}
       </View>
-      <View style={styles.chart}>
-        <View style={[styles.months, { width: weeks.length * 7 }]}>
-          {monthLabels.map((month, index) =>
-            month ? (
-              <AppText
-                key={`month-${index}`}
-                muted
-                numberOfLines={1}
-                style={[styles.monthLabel, { left: index * 7 }]}
-              >
-                {month}
-              </AppText>
-            ) : null,
-          )}
+      <ScrollView
+        ref={chartRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chart}
+        onContentSizeChange={() => chartRef.current?.scrollToEnd({ animated: false })}
+      >
+        <View style={{ width: weeks.length * 7 }}>
+          <View style={[styles.months, { width: weeks.length * 7 }]}>
+            {monthLabels.map((month, index) =>
+              month ? (
+                <AppText
+                  key={`month-${index}`}
+                  muted
+                  numberOfLines={1}
+                  style={[styles.monthLabel, { left: index * 7 }]}
+                >
+                  {month}
+                </AppText>
+              ) : null,
+            )}
+          </View>
+          <View style={styles.weeks}>
+            {weeks.map((week, index) => (
+              <View key={index} style={styles.week}>
+                {week.map((date, dayIndex) => {
+                  if (!date) return <View key={dayIndex} style={styles.emptyCell} />;
+                  const key = localDateKey(date);
+                  const count = counts.get(key) ?? 0;
+                  const opacity = count === 0 ? 0.16 : 0.35 + (count / max) * 0.65;
+                  return (
+                    <View
+                      key={dayIndex}
+                      accessibilityLabel={`${key}: ${count} memories`}
+                      style={[styles.cell, { opacity, backgroundColor: theme.green }]}
+                    />
+                  );
+                })}
+              </View>
+            ))}
+          </View>
         </View>
-        <View style={styles.weeks}>
-          {weeks.map((week, index) => (
-            <View key={index} style={styles.week}>
-              {week.map((date, dayIndex) => {
-                if (!date) return <View key={dayIndex} style={styles.emptyCell} />;
-                const key = localDateKey(date);
-                const count = counts.get(key) ?? 0;
-                const opacity = count === 0 ? 0.16 : 0.35 + (count / max) * 0.65;
-                return (
-                  <View
-                    key={dayIndex}
-                    accessibilityLabel={`${key}: ${count} memories`}
-                    style={[styles.cell, { opacity, backgroundColor: theme.green }]}
-                  />
-                );
-              })}
-            </View>
-          ))}
-        </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
