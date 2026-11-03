@@ -1,8 +1,9 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import {
   Entities,
   Memory,
@@ -14,7 +15,38 @@ import {
 
 const DATABASE_NAME = 'memoix.db';
 const DATABASE_VERSION = 1;
+const BACKUP_DIRECTORY_FILE = 'memoix-backup-directory.txt';
 let database: SQLite.SQLiteDatabase | null = null;
+
+function getBackupDirectoryPreferencePath(): string {
+  if (!FileSystem.documentDirectory) {
+    throw new Error('The app storage directory is unavailable.');
+  }
+  return `${FileSystem.documentDirectory}${BACKUP_DIRECTORY_FILE}`;
+}
+
+async function getSavedBackupDirectory(): Promise<string | null> {
+  const path = getBackupDirectoryPreferencePath();
+  const info = await FileSystem.getInfoAsync(path);
+  if (!info.exists) return null;
+  const directoryUri = (await FileSystem.readAsStringAsync(path)).trim();
+  return directoryUri || null;
+}
+
+export async function selectBackupDirectory(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    throw new Error('Choosing a backup folder is only supported on Android.');
+  }
+
+  const permissions =
+    await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!permissions.granted) return false;
+  await FileSystem.writeAsStringAsync(
+    getBackupDirectoryPreferencePath(),
+    permissions.directoryUri,
+  );
+  return true;
+}
 
 async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!database) {
@@ -375,6 +407,21 @@ export async function deleteTag(id: number): Promise<void> {
 }
 
 export async function exportBackup(): Promise<void> {
+  let directoryUri: string | null = null;
+  if (Platform.OS === 'android') {
+    directoryUri = await getSavedBackupDirectory();
+    if (directoryUri) {
+      try {
+        await FileSystem.StorageAccessFramework.readDirectoryAsync(directoryUri);
+      } catch {
+        directoryUri = null;
+      }
+    }
+    if (!directoryUri && !(await selectBackupDirectory())) return;
+    directoryUri = await getSavedBackupDirectory();
+    if (!directoryUri) throw new Error('The backup folder was not saved.');
+  }
+
   const source = await getDatabase();
   const backupName = `memoix-backup-${Date.now()}.db`;
   const backup = await SQLite.openDatabaseAsync(backupName);
@@ -384,15 +431,27 @@ export async function exportBackup(): Promise<void> {
       sourceDatabase: source,
       destDatabase: backup,
     });
-    if (!(await Sharing.isAvailableAsync())) {
-      throw new Error('Sharing is not available on this device.');
-    }
     await backup.closeAsync();
     closed = true;
-    await Sharing.shareAsync(`file://${backup.databasePath}`, {
-      mimeType: 'application/vnd.sqlite3',
-      dialogTitle: 'Export Memoix backup',
-    });
+    if (directoryUri) {
+      const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        directoryUri,
+        backupName,
+        'application/octet-stream',
+      );
+      await new File(`file://${backup.databasePath}`).copy(
+        new File(destinationUri),
+        { overwrite: true },
+      );
+    } else {
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('Sharing is not available on this device.');
+      }
+      await Sharing.shareAsync(`file://${backup.databasePath}`, {
+        mimeType: 'application/vnd.sqlite3',
+        dialogTitle: 'Export Memoix backup',
+      });
+    }
   } finally {
     if (!closed) await backup.closeAsync();
     await SQLite.deleteDatabaseAsync(backupName);

@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { Alert, StyleSheet } from 'react-native';
-import { confirmRestore, exportBackup, restoreBackup } from '../database';
+import { Alert, Platform, StyleSheet } from 'react-native';
+import {
+  confirmRestore,
+  exportBackup,
+  restoreBackup,
+  selectBackupDirectory,
+} from '../database';
 import { AppText, Button, Card, Page } from '../components/ui';
 
 export default function BackupScreen({
@@ -16,6 +21,20 @@ export default function BackupScreen({
       await exportBackup();
     } catch (error) {
       Alert.alert('Backup failed', error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeBackupFolder = async () => {
+    setBusy(true);
+    try {
+      const selected = await selectBackupDirectory();
+      if (selected) {
+        Alert.alert('Backup folder saved', 'Future backups will be saved in this folder.');
+      }
+    } catch (error) {
+      Alert.alert('Folder selection failed', error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
@@ -50,15 +69,31 @@ export default function BackupScreen({
       <Card>
         <AppText bold accent>CREATE BACKUP</AppText>
         <AppText muted>
-          Export a portable .db file using the Android share sheet. Store a copy somewhere safe;
-          app data can be lost if the app is uninstalled or the device is lost. Backup files are
-          not encrypted, so save them somewhere private.
+          {Platform.OS === 'android'
+            ? 'Backups are saved to your selected folder. Choose a folder the first time, or change it later.'
+            : 'Export a portable .db backup using the share sheet.'}{' '}
+          Store a copy somewhere safe; app data can be lost if the app is uninstalled or the device
+          is lost. Backup files are not encrypted, so save them somewhere private.
         </AppText>
         <Button
-          title={busy ? 'PLEASE WAIT…' : 'EXPORT SQLITE BACKUP'}
+          title={
+            busy
+              ? 'PLEASE WAIT…'
+              : Platform.OS === 'android'
+                ? 'SAVE SQLITE BACKUP'
+                : 'SHARE SQLITE BACKUP'
+          }
           onPress={exportFile}
           disabled={busy}
         />
+        {Platform.OS === 'android' ? (
+          <Button
+            title={busy ? 'PLEASE WAIT…' : 'SELECT / CHANGE BACKUP FOLDER'}
+            onPress={changeBackupFolder}
+            disabled={busy}
+            secondary
+          />
+        ) : null}
       </Card>
       <Card>
         <AppText bold accent>RESTORE BACKUP</AppText>
