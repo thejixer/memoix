@@ -256,6 +256,7 @@ export function DateFilterField({
 }) {
   const [open, setOpen] = useState(false);
   const selected = value ? new Date(`${value}T12:00:00`) : new Date();
+
   const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
     setOpen(false);
     if (event.type !== 'set' || !date) return;
@@ -267,21 +268,28 @@ export function DateFilterField({
 
   return (
     <View style={[styles.field, compact && styles.compactDateField]}>
-      <AppText muted style={[styles.fieldLabel, compact && styles.compactDateLabel]}>
-        {label}
-      </AppText>
-      <View style={styles.dateFilterRow}>
+      <View style={[styles.dateFilterRow, compact && styles.compactDateRow]}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} date`}
           style={[styles.input, compact && styles.compactDateInput]}
           onPress={() => setOpen(true)}
+          onLongPress={() => value && onChange('')}
         >
           <AppText numberOfLines={1} style={compact && styles.compactDateText}>
-            {value || 'Any date'}
+            {label}: {value || 'N/A'}
           </AppText>
         </Pressable>
-        {value && !compact ? (
-          <Pressable accessibilityRole="button" onPress={() => onChange('')} style={styles.clearDate}>
-            <AppText accent>CLEAR</AppText>
+        {value ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label} date`}
+            onPress={() => onChange('')}
+            style={compact ? styles.clearDateCompact : styles.clearDate}
+          >
+            <AppText accent style={compact && styles.compactDateText}>
+              {compact ? '×' : 'CLEAR'}
+            </AppText>
           </Pressable>
         ) : null}
       </View>
@@ -296,6 +304,7 @@ export function DateFilterField({
     </View>
   );
 }
+
 
 export function Chip({
   title,
@@ -365,16 +374,17 @@ const styles = StyleSheet.create({
   optionalDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   optionalDateInput: { flex: 1 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
-  compactDateField: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  compactDateLabel: { width: 38, fontSize: 9 },
-  compactDateInput: { 
-    minWidth: 70,
+  clearDateCompact: { paddingHorizontal: 4, paddingVertical: 4 },
+  compactDateField: { flex: 0, flexDirection: 'row', alignItems: 'center' },
+  compactDateRow: { flex: 0 },
+  compactDateInput: {
+    minWidth: 110,
     minHeight: 34,
     paddingHorizontal: 8,
     paddingVertical: 4,
     alignItems: 'center',
   },
-  compactDateText: { fontSize: 9 },
+  compactDateText: { fontSize: 10 },
   fieldLabel: { fontSize: 11 },
   input: {
     minHeight: 46,
