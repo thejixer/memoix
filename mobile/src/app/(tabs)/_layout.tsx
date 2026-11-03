@@ -19,7 +19,7 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: '#080D08',
           borderTopColor: theme.border,
-          height: 48 + insets.bottom,
+          height: 20 + insets.bottom,
           paddingTop: 0,
           paddingBottom: insets.bottom,
         },
@@ -55,7 +55,7 @@ export default function TabLayout() {
   );
 }
 
-const PLUS_LENGTH = 12;
+const PLUS_LENGTH = 10;
 const PLUS_THICKNESS = 2;
 
 const styles = StyleSheet.create({
@@ -68,22 +68,17 @@ const styles = StyleSheet.create({
     height: PLUS_LENGTH,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: theme.green,
-    borderRadius: 6,
   },
   plusHorizontal: {
     position: 'absolute',
     width: PLUS_LENGTH,
     height: PLUS_THICKNESS,
-    borderRadius: 1,
     backgroundColor: theme.green,
   },
   plusVertical: {
     position: 'absolute',
     width: PLUS_THICKNESS,
     height: PLUS_LENGTH,
-    borderRadius: 1,
     backgroundColor: theme.green,
   },
 });
