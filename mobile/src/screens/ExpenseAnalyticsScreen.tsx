@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import {
   filterMemories,
   getDailyExpenseTotals,
@@ -10,20 +11,34 @@ import {
 import { AppText, Card, DateFilterField, Page } from '../components/ui';
 import { CompositeBarChart, DailyLineChart } from '../components/ExpenseCharts';
 
-function todayKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function startOfMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+function getDefaultDateRange(now = new Date()) {
+  const since = new Date(now);
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - ((since.getDay() + 1) % 7));
+  const until = new Date(since);
+  until.setDate(until.getDate() + 6);
+  return { since: dateKey(since), until: dateKey(until) };
 }
 
 export default function ExpenseAnalyticsScreen({ memories }: { memories: Memory[] }) {
-  const [since, setSince] = useState(startOfMonthKey);
-  const [until, setUntil] = useState(todayKey);
+  const [since, setSince] = useState(() => getDefaultDateRange().since);
+  const [until, setUntil] = useState(() => getDefaultDateRange().until);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        const range = getDefaultDateRange();
+        setSince(range.since);
+        setUntil(range.until);
+        setSelectedDate(null);
+      },
+      [],
+    ),
+  );
   const expenses = useMemo(
     () => filterMemories(memories, '', since, until).filter(item => item.type === 'expense'),
     [memories, since, until],
@@ -32,8 +47,9 @@ export default function ExpenseAnalyticsScreen({ memories }: { memories: Memory[
     .filter(memory => memory.type === 'expense')
     .map(memory => localDateKey(memory.occurredAt))
     .sort();
-  const chartSince = since || allExpenseDates[0] || startOfMonthKey();
-  const chartUntil = until || allExpenseDates[allExpenseDates.length - 1] || todayKey();
+  const defaultRange = getDefaultDateRange();
+  const chartSince = since || allExpenseDates[0] || defaultRange.since;
+  const chartUntil = until || allExpenseDates[allExpenseDates.length - 1] || defaultRange.until;
   const days = useMemo(
     () => getDailyExpenseTotals(expenses, chartSince, chartUntil),
     [expenses, chartSince, chartUntil],
@@ -44,13 +60,6 @@ export default function ExpenseAnalyticsScreen({ memories }: { memories: Memory[
   const selectedDay = focusDate
     ? expenses.filter(memory => localDateKey(memory.occurredAt) === focusDate)
     : [];
-  const tagsForSelectedDay = new Map<string, number>();
-  for (const expense of selectedDay) {
-    for (const tag of expense.tags) {
-      tagsForSelectedDay.set(tag, (tagsForSelectedDay.get(tag) ?? 0) + (expense.amount ?? 0));
-    }
-  }
-  const tagList = [...tagsForSelectedDay.entries()].sort((a, b) => b[1] - a[1]);
   const dailyAmounts = days.map(day => day.total);
   const sortedDailyAmounts = [...dailyAmounts].sort((a, b) => a - b);
   const dailyMean = dailyAmounts.length
@@ -123,17 +132,23 @@ export default function ExpenseAnalyticsScreen({ memories }: { memories: Memory[
       />
       <Card>
         <AppText bold accent>
-          {focusDate ? `TAGS · ${focusDate}` : 'TAGS · SELECT A DAY'}
+          {focusDate ? `EXPENSES · ${focusDate}` : 'EXPENSES · SELECT A DAY'}
         </AppText>
-        {tagList.length ? (
-          tagList.map(([tag, total]) => (
-            <View key={tag} style={styles.tagRow}>
-              <AppText>#{tag}</AppText>
-              <AppText muted>{total.toLocaleString()}</AppText>
-            </View>
-          ))
+        {selectedDay.length ? (
+          selectedDay.map(expense => {
+            const entities = [
+              ...expense.tags.map(tag => `#${tag}`),
+              ...expense.people.map(person => `@${person}`),
+              ...expense.places.map(place => `&${place}`),
+            ];
+            return (
+              <View key={expense.id} style={styles.expenseRow}>
+                <AppText>{entities.join(' ') || 'No tags or mentions'}</AppText>
+              </View>
+            );
+          })
         ) : (
-          <AppText muted>No tags on this day.</AppText>
+          <AppText muted>No expenses on this day.</AppText>
         )}
       </Card>
       <CompositeBarChart title="TOP 20 TAG COMBINATIONS" data={topTags} />
@@ -149,9 +164,7 @@ const styles = StyleSheet.create({
   stat: { width: '48%', minHeight: 76, justifyContent: 'space-between' },
   statLabel: { fontSize: 10 },
   statValue: { fontSize: 16 },
-  tagRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  expenseRow: {
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#18351B',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { deleteTag, saveTag } from '../database';
-import { Memory, Tag } from '../domain';
+import { getTopEntities, Memory, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 
 export default function TagEditorScreen({
@@ -16,11 +16,13 @@ export default function TagEditorScreen({
   onClose: () => void;
 }) {
   const [name, setName] = useState(tag?.name ?? '');
-  const linkedCount = tag
+  const linkedMemories = tag
     ? memories.filter(memory =>
         memory.tags.some(value => value.toLocaleLowerCase() === tag.name.toLocaleLowerCase()),
-      ).length
-    : 0;
+      )
+    : [];
+  const topTags = getTopEntities(linkedMemories, 'tags');
+  const topMentions = getTopEntities(linkedMemories, 'people');
 
   const submit = async () => {
     try {
@@ -58,6 +60,47 @@ export default function TagEditorScreen({
       <AppText bold accent style={{ fontSize: 19, letterSpacing: 1.5 }}>
         {tag ? 'EDIT TAG' : 'NEW TAG'}
       </AppText>
+      {tag ? (
+        <>
+          <View style={styles.entitySummaries}>
+            <View style={styles.entitySection}>
+              <AppText bold accent>TOP TAGS</AppText>
+              {topTags.length ? (
+                topTags.map(item => (
+                  <AppText key={item.name} muted>#{item.name} · {item.usageCount}</AppText>
+                ))
+              ) : (
+                <AppText muted>No tags yet.</AppText>
+              )}
+            </View>
+            <View style={styles.entitySection}>
+              <AppText bold accent>TOP MENTIONS</AppText>
+              {topMentions.length ? (
+                topMentions.map(item => (
+                  <AppText key={item.name} muted>@{item.name} · {item.usageCount}</AppText>
+                ))
+              ) : (
+                <AppText muted>No mentions yet.</AppText>
+              )}
+            </View>
+          </View>
+          <View style={styles.linkedMemories}>
+            <AppText bold accent>LINKED MEMORIES · {linkedMemories.length}</AppText>
+            {linkedMemories.length ? (
+              linkedMemories.map(memory => (
+                <Card key={memory.id}>
+                  <AppText>{memory.content}</AppText>
+                  <AppText muted style={styles.memoryDate}>
+                    {new Date(memory.occurredAt).toLocaleString()}
+                  </AppText>
+                </Card>
+              ))
+            ) : (
+              <Card><AppText muted>No linked memories yet.</AppText></Card>
+            )}
+          </View>
+        </>
+      ) : null}
       <TextField
         label="TAG NAME"
         value={name}
@@ -69,10 +112,17 @@ export default function TagEditorScreen({
       <Button title="SAVE TAG" onPress={submit} />
       {tag ? (
         <>
-          <Card><AppText muted>USED IN {linkedCount} MEMORIES</AppText></Card>
+          <Card><AppText muted>USED IN {linkedMemories.length} MEMORIES</AppText></Card>
           <Button title="DELETE TAG" danger onPress={remove} />
         </>
       ) : null}
     </Page>
   );
 }
+
+const styles = StyleSheet.create({
+  entitySummaries: { gap: 10 },
+  entitySection: { gap: 4 },
+  linkedMemories: { gap: 10 },
+  memoryDate: { fontSize: 10 },
+});

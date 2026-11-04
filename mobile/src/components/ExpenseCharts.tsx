@@ -37,7 +37,7 @@ export function DailyLineChart({
   return (
     <Card>
       <AppText bold accent>DAILY EXPENSES</AppText>
-      <AppText muted style={styles.chartHint}>Tap a day to inspect its tags.</AppText>
+      <AppText muted style={styles.chartHint}>Tap a day to inspect its expenses.</AppText>
       <View>
         <Svg width={width} height={height}>
           <Line

@@ -1,5 +1,9 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Production and database safety
+
+This app is in production. Do not change the database schema, migrations, stored data, or code that writes to or otherwise changes persisted database state without explicit confirmation from the user. If a requested change appears to require any such database change, stop and ask for approval first. Read-only database access and UI-only changes that do not alter persistence are allowed.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

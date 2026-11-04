@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { deletePerson, savePerson } from '../database';
-import { localDateKey, Memory, Person } from '../domain';
+import { getTopEntities, localDateKey, Memory, Person } from '../domain';
 import { theme } from '../theme';
 import { AppText, Button, Card, OptionalDateField, Page, TextField } from '../components/ui';
 
@@ -32,6 +32,12 @@ export default function PersonEditorScreen({
   const linkedMemories = person
     ? memories.filter(memory => memory.people.includes(person.mentionKey))
     : [];
+  const topTags = getTopEntities(linkedMemories, 'tags');
+  const topMentions = getTopEntities(
+    linkedMemories,
+    'people',
+    person ? [person.mentionKey] : [],
+  );
 
   const pickAvatar = async () => {
     try {
@@ -130,7 +136,6 @@ export default function PersonEditorScreen({
           <AppText muted style={styles.avatarLabel}>CHOOSE AVATAR</AppText>
         </Pressable>
         <View style={styles.personHeading}>
-          <AppText muted style={styles.handleLabel}>HANDLE</AppText>
           <AppText bold accent style={styles.handle}>
             @{mentionKey.trim().replace(/^@/, '') || 'handle'}
           </AppText>
@@ -142,6 +147,30 @@ export default function PersonEditorScreen({
           </AppText>
         </View>
       </View>
+      {person ? (
+        <View style={styles.entitySummaries}>
+          <View style={styles.entitySection}>
+            <AppText bold accent>TOP TAGS</AppText>
+            {topTags.length ? (
+              topTags.map(item => (
+                <AppText key={item.name} muted>#{item.name} · {item.usageCount}</AppText>
+              ))
+            ) : (
+              <AppText muted>No tags yet.</AppText>
+            )}
+          </View>
+          <View style={styles.entitySection}>
+            <AppText bold accent>TOP MENTIONS</AppText>
+            {topMentions.length ? (
+              topMentions.map(item => (
+                <AppText key={item.name} muted>@{item.name} · {item.usageCount}</AppText>
+              ))
+            ) : (
+              <AppText muted>No other mentions yet.</AppText>
+            )}
+          </View>
+        </View>
+      ) : null}
       <View style={styles.tabs}>
         {(['memories', 'edit'] as const).map(item => (
           <Pressable
@@ -222,9 +251,10 @@ const styles = StyleSheet.create({
   backButton: { alignSelf: 'flex-start', paddingVertical: 2 },
   personHeader: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   personHeading: { flex: 1, gap: 3 },
-  handleLabel: { fontSize: 10, letterSpacing: 1 },
   handle: { fontSize: 18 },
   title: { fontSize: 19, letterSpacing: 1.5 },
+  entitySummaries: { gap: 10 },
+  entitySection: { gap: 4 },
   avatarButton: { alignItems: 'center', gap: 4, paddingVertical: 4 },
   avatarLabel: { fontSize: 8 },
   avatar: { width: 76, height: 76, borderRadius: 38 },
