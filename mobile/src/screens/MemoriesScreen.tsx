@@ -15,7 +15,7 @@ import {
   Person,
   Tag,
 } from '../domain';
-import { entityColors, theme } from '../theme';
+import { entityColors, useTheme } from '../theme';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import EntityInput from '../components/EntityInput';
 import MemoryCard from '../components/MemoryCard';
@@ -57,6 +57,7 @@ export default function MemoriesScreen({
   tags,
   onEdit,
 }: Props) {
+  const { theme } = useTheme();
   const [tab, setTab] = useState<'memories' | 'analytics'>('memories');
   const [query, setQuery] = useState('');
   const [since, setSince] = useState('');
@@ -176,12 +177,12 @@ export default function MemoriesScreen({
             ))}
           </View>
         )}
-        <View style={styles.tabs}>
+        <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
           {(['memories', 'analytics'] as const).map(item => (
             <Pressable
               key={item}
               onPress={() => setTab(item)}
-              style={[styles.tab, tab === item && styles.activeTab]}
+              style={[styles.tab, tab === item && { borderBottomColor: theme.green }]}
             >
               <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
             </Pressable>
@@ -275,13 +276,12 @@ const styles = StyleSheet.create({
   entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   entityText: { fontSize: 10, lineHeight: 18 },
   emptyEntityText: { fontSize: 9 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1 },
   heatmapHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   yearNavigation: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   yearArrow: { fontSize: 24, lineHeight: 28 },
   yearLabel: { fontSize: 14, minWidth: 42, textAlign: 'center' },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: theme.green },
   list: { gap: 10 },
   analytics: { gap: 12 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

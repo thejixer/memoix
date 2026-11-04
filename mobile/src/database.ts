@@ -14,7 +14,7 @@ import {
 } from './domain';
 
 const DATABASE_NAME = 'memoix.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 const BACKUP_DIRECTORY_FILE = 'memoix-backup-directory.txt';
 let database: SQLite.SQLiteDatabase | null = null;
 
@@ -96,6 +96,10 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         place_id INTEGER NOT NULL REFERENCES places(id) ON DELETE CASCADE,
         PRIMARY KEY (memory_id, place_id)
       );
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
       CREATE INDEX IF NOT EXISTS memories_occurred_at_idx ON memories(occurred_at);
       PRAGMA user_version = ${DATABASE_VERSION};
     `);
@@ -105,6 +109,24 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 export async function initializeDatabase(): Promise<void> {
   await getDatabase();
+}
+
+export async function getAppSetting(key: string): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM app_settings WHERE key = ?',
+    key,
+  );
+  return row?.value ?? null;
+}
+
+export async function setAppSetting(key: string, value: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    'INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    key,
+    value,
+  );
 }
 
 async function resolveEntityIds(
@@ -487,7 +509,9 @@ export async function restoreBackup(): Promise<boolean> {
     const names = new Set(requiredTables.map(table => table.name));
     const isMemoixBackup =
       integrity?.integrity_check === 'ok' &&
-      version?.user_version === DATABASE_VERSION &&
+      version?.user_version !== undefined &&
+      version.user_version >= 1 &&
+      version.user_version <= DATABASE_VERSION &&
       [
         'memories',
         'people',
@@ -505,6 +529,13 @@ export async function restoreBackup(): Promise<boolean> {
     await SQLite.backupDatabaseAsync({ sourceDatabase: liveDb, destDatabase: rollback });
     try {
       await SQLite.backupDatabaseAsync({ sourceDatabase: staged, destDatabase: liveDb });
+      await liveDb.execAsync(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY NOT NULL,
+          value TEXT NOT NULL
+        );
+        PRAGMA user_version = ${DATABASE_VERSION};
+      `);
     } catch (error) {
       try {
         await SQLite.backupDatabaseAsync({ sourceDatabase: rollback, destDatabase: liveDb });

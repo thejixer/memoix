@@ -3,7 +3,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-nat
 import * as ImagePicker from 'expo-image-picker';
 import { deletePerson, savePerson } from '../database';
 import { getTopEntities, localDateKey, Memory, Person } from '../domain';
-import { entityColors, theme } from '../theme';
+import { entityColors, useTheme } from '../theme';
 import MemoryCard from '../components/MemoryCard';
 import { AppText, Button, Card, OptionalDateField, Page, TextField } from '../components/ui';
 
@@ -18,6 +18,7 @@ export default function PersonEditorScreen({
   onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
+  const { theme } = useTheme();
   const [tab, setTab] = useState<'memories' | 'edit'>(person ? 'memories' : 'edit');
   const [fullName, setFullName] = useState(person?.fullName ?? '');
   const [mentionKey, setMentionKey] = useState(person?.mentionKey ?? '');
@@ -128,7 +129,13 @@ export default function PersonEditorScreen({
               style={styles.avatar}
             />
           ) : (
-            <View style={[styles.avatar, styles.avatarEmpty]}>
+            <View
+              style={[
+                styles.avatar,
+                styles.avatarEmpty,
+                { backgroundColor: theme.surfaceRaised, borderColor: theme.green },
+              ]}
+            >
               <AppText accent style={styles.avatarGlyph}>
                 {(mentionKey.trim().replace(/^@/, '') || '?').slice(0, 1).toUpperCase()}
               </AppText>
@@ -193,14 +200,14 @@ export default function PersonEditorScreen({
           </ScrollView>
         </View>
       ) : null}
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
         {(['memories', 'edit'] as const).map(item => (
           <Pressable
             key={item}
             accessibilityRole="tab"
             accessibilityState={{ selected: tab === item }}
             onPress={() => setTab(item)}
-            style={[styles.tab, tab === item && styles.activeTab]}
+            style={[styles.tab, tab === item && { borderBottomColor: theme.green }]}
           >
             <AppText bold accent={tab === item}>{item.toUpperCase()}</AppText>
           </Pressable>
@@ -276,16 +283,13 @@ const styles = StyleSheet.create({
   avatarLabel: { fontSize: 8 },
   avatar: { width: 76, height: 76, borderRadius: 38 },
   avatarEmpty: {
-    backgroundColor: theme.surfaceRaised,
     borderWidth: 1,
-    borderColor: theme.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarGlyph: { fontSize: 26 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  activeTab: { borderBottomColor: theme.green },
   form: { gap: 14 },
   memories: { gap: 10 },
   hint: { fontSize: 10 },

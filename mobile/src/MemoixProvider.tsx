@@ -1,14 +1,16 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet } from 'react-native';
-import { useFonts } from 'expo-font';
+import { ActivityIndicator, SafeAreaView, StyleSheet, useColorScheme } from 'react-native';
 import {
-  SpaceMono_400Regular,
-  SpaceMono_700Bold,
-} from '@expo-google-fonts/space-mono';
-import { getMemories, getPeople, getTags, initializeDatabase } from './database';
+  getAppSetting,
+  getMemories,
+  getPeople,
+  getTags,
+  initializeDatabase,
+  setAppSetting,
+} from './database';
 import { Memory, Person, Tag } from './domain';
 import { AppText } from './components/ui';
-import { theme } from './theme';
+import { font, isThemeName, ThemeContext, ThemeName, themes } from './theme';
 
 type MemoixContextValue = {
   memories: Memory[];
@@ -20,13 +22,12 @@ type MemoixContextValue = {
 const MemoixContext = createContext<MemoixContextValue | null>(null);
 
 export function MemoixProvider({ children }: { children: ReactNode }) {
-  const [fontsLoaded, fontError] = useFonts({
-    SpaceMono_400Regular,
-    SpaceMono_700Bold,
-  });
   const [memories, setMemories] = useState<Memory[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const systemColorScheme = useColorScheme();
+  const [themePreference, setThemePreference] = useState<ThemeName | null>(null);
+  const themeName = themePreference ?? (systemColorScheme === 'light' ? 'Light' : 'Dark');
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -43,36 +44,57 @@ export function MemoixProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initializeDatabase()
-      .then(refresh)
+      .then(async () => {
+        const savedTheme = await getAppSetting('theme');
+        if (isThemeName(savedTheme)) setThemePreference(savedTheme);
+        await refresh();
+      })
       .catch(error => {
         setFailure(error instanceof Error ? error.message : String(error));
       })
       .finally(() => setLoading(false));
   }, [refresh]);
 
-  if ((!fontsLoaded && !fontError) || loading) {
+  const setTheme = useCallback(async (nextTheme: ThemeName) => {
+    await setAppSetting('theme', nextTheme);
+    setThemePreference(nextTheme);
+  }, []);
+
+  const themeContext = {
+    theme: { ...themes[themeName], font, fontBold: font },
+    themeName,
+    setTheme,
+  };
+
+  if (loading) {
     return (
-      <SafeAreaView style={styles.centered}>
-        <ActivityIndicator color={theme.green} />
-        <AppText accent>{loading ? 'OPENING LOCAL DATABASE…' : 'STARTING MEMOIX…'}</AppText>
-      </SafeAreaView>
+      <ThemeContext.Provider value={themeContext}>
+        <SafeAreaView style={[styles.centered, { backgroundColor: themeContext.theme.background }]}>
+          <ActivityIndicator color={themeContext.theme.green} />
+          <AppText accent>OPENING LOCAL DATABASE…</AppText>
+        </SafeAreaView>
+      </ThemeContext.Provider>
     );
   }
 
   if (failure) {
     return (
-      <SafeAreaView style={styles.centered}>
-        <AppText bold style={styles.error}>DATABASE ERROR</AppText>
-        <AppText>{failure}</AppText>
-        <AppText muted>Restart the app after resolving the local storage issue.</AppText>
-      </SafeAreaView>
+      <ThemeContext.Provider value={themeContext}>
+        <SafeAreaView style={[styles.centered, { backgroundColor: themeContext.theme.background }]}>
+          <AppText bold style={[styles.error, { color: themeContext.theme.danger }]}>DATABASE ERROR</AppText>
+          <AppText>{failure}</AppText>
+          <AppText muted>Restart the app after resolving the local storage issue.</AppText>
+        </SafeAreaView>
+      </ThemeContext.Provider>
     );
   }
 
   return (
-    <MemoixContext.Provider value={{ memories, people, tags, refresh }}>
-      {children}
-    </MemoixContext.Provider>
+    <ThemeContext.Provider value={themeContext}>
+      <MemoixContext.Provider value={{ memories, people, tags, refresh }}>
+        {children}
+      </MemoixContext.Provider>
+    </ThemeContext.Provider>
   );
 }
 
@@ -85,11 +107,10 @@ export function useMemoix(): MemoixContextValue {
 const styles = StyleSheet.create({
   centered: {
     flex: 1,
-    backgroundColor: theme.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     gap: 12,
   },
-  error: { color: theme.danger, fontSize: 16 },
+  error: { fontSize: 16 },
 });

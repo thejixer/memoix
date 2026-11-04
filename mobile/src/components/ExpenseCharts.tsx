@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 import { CompositeTotal, DayTotal } from '../domain';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 import { AppText, Card } from './ui';
 
 export function DailyLineChart({
@@ -14,6 +14,7 @@ export function DailyLineChart({
   selectedDate: string | null;
   onSelect: (date: string) => void;
 }) {
+  const { theme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const width = Math.max(280, screenWidth - 64);
   const height = 190;
@@ -113,6 +114,7 @@ export function CompositeBarChart({
   title: string;
   data: CompositeTotal[];
 }) {
+  const { theme } = useTheme();
   const max = Math.max(1, ...data.map(item => item.total));
   const rows = useMemo(() => data.slice(0, 20), [data]);
   return (
@@ -122,11 +124,14 @@ export function CompositeBarChart({
         rows.map(item => (
           <View key={item.label} style={styles.barRow}>
             <AppText style={styles.barLabel} numberOfLines={1}>{item.label}</AppText>
-            <View style={styles.barTrack}>
+            <View style={[styles.barTrack, { backgroundColor: theme.surfaceRaised }]}>
               <View
                 style={[
                   styles.barFill,
-                  { width: `${Math.max(3, (item.total / max) * 100)}%` },
+                  {
+                    width: `${Math.max(3, (item.total / max) * 100)}%`,
+                    backgroundColor: theme.green,
+                  },
                 ]}
               />
             </View>
@@ -147,10 +152,9 @@ const styles = StyleSheet.create({
   barTrack: {
     flex: 1,
     height: 10,
-    backgroundColor: '#142516',
     borderRadius: 5,
     overflow: 'hidden',
   },
-  barFill: { height: '100%', backgroundColor: theme.green, borderRadius: 5 },
+  barFill: { height: '100%', borderRadius: 5 },
   barValue: { width: 74, textAlign: 'right', fontSize: 10 },
 });

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Memory, Person, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
+import { useTheme } from '../theme';
 
 export default function PeopleScreen({
 	people,
@@ -16,6 +17,7 @@ export default function PeopleScreen({
 	onOpenPerson: (person: Person | null) => void;
 	onOpenTag: (tag: Tag | null) => void;
 }) {
+	const { theme } = useTheme();
 	const [tab, setTab] = useState<'persons' | 'tags'>('persons');
 	const [personQuery, setPersonQuery] = useState('');
 	const [tagQuery, setTagQuery] = useState('');
@@ -74,14 +76,14 @@ export default function PeopleScreen({
 					PEOPLE &amp; TAGS
 				</AppText>
 			</View>
-			<View style={styles.tabs}>
+			<View style={[styles.tabs, { borderBottomColor: theme.border }]}>
 				{(['persons', 'tags'] as const).map(item => (
 					<Pressable
 						key={item}
 						accessibilityRole="tab"
 						accessibilityState={{ selected: tab === item }}
 						onPress={() => setTab(item)}
-						style={[styles.tab, tab === item && styles.activeTab]}
+						style={[styles.tab, tab === item && { borderBottomColor: theme.green }]}
 					>
 						<AppText bold accent={tab === item}>
 							{item.toUpperCase()}
@@ -115,7 +117,13 @@ export default function PeopleScreen({
 											style={styles.listAvatar}
 										/>
 									) : (
-										<View style={[styles.listAvatar, styles.avatarEmpty]}>
+										<View
+											style={[
+												styles.listAvatar,
+												styles.avatarEmpty,
+												{ backgroundColor: theme.surfaceRaised, borderColor: theme.green },
+											]}
+										>
 											<AppText accent>
 												{(person.fullName.trim() || person.mentionKey)
 													.slice(0, 1)
@@ -198,7 +206,6 @@ const styles = StyleSheet.create({
 	tabs: {
 		flexDirection: 'row',
 		borderBottomWidth: 1,
-		borderBottomColor: '#1C5522',
 	},
 	tab: {
 		flex: 1,
@@ -207,16 +214,13 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 2,
 		borderBottomColor: 'transparent',
 	},
-	activeTab: { borderBottomColor: '#39FF14' },
 	sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
 	addButton: { minHeight: 46, paddingHorizontal: 10 },
 	personCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 	personInfo: { flex: 1, gap: 2 },
 	listAvatar: { height: 48, width: 48, borderRadius: 24 },
 	avatarEmpty: {
-		backgroundColor: '#0D160D',
 		borderWidth: 1,
-		borderColor: '#39FF5B',
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
@@ -227,9 +231,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		gap: 6,
 		borderWidth: 1,
-		borderColor: '#1C5522',
 		borderRadius: 16,
-		backgroundColor: '#0A120B',
 		paddingHorizontal: 10,
 		paddingVertical: 6,
 	},

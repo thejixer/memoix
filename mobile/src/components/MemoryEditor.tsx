@@ -6,7 +6,6 @@ import {
   View,
 } from 'react-native';
 import { Memory, MemoryType, Person, Tag } from '../domain';
-import { theme } from '../theme';
 import { deleteMemory, saveMemory } from '../database';
 import EntityInput from './EntityInput';
 import { AppText, Button, DateField, Page, TextField } from './ui';
@@ -207,5 +206,5 @@ const styles = StyleSheet.create({
   amountField: { width: 112, gap: 4 },
   amountUnit: { fontSize: 9, textAlign: 'center' },
   expenseContent: { flex: 1, minWidth: 0 },
-  helper: { fontSize: 11, color: theme.muted },
+  helper: { fontSize: 11 },
 });

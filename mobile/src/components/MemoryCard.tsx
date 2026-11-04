@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Memory } from '../domain';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 import { AppText, Card } from './ui';
 
 function dateLabel(value: string) {
@@ -15,6 +15,7 @@ function dateLabel(value: string) {
 }
 
 export default function MemoryCard({ memory }: { memory: Memory }) {
+  const { theme } = useTheme();
   return (
     <Card style={styles.memoryCard}>
       {memory.type === 'expense' ? (
@@ -30,9 +31,9 @@ export default function MemoryCard({ memory }: { memory: Memory }) {
           >
             <Defs>
               <LinearGradient id={`expenseRibbonGradient${memory.id}`} x1="0" y1="1" x2="1" y2="0">
-                <Stop offset="0" stopColor="#EEFF00" stopOpacity="0.9" />
-                <Stop offset="0.55" stopColor="#37FF00" stopOpacity="0.75" />
-                <Stop offset="1" stopColor="#37FF00" />
+                <Stop offset="0" stopColor={theme.greenSoft} stopOpacity="0.9" />
+                <Stop offset="0.55" stopColor={theme.green} stopOpacity="0.75" />
+                <Stop offset="1" stopColor={theme.green} />
               </LinearGradient>
             </Defs>
             <Path
@@ -41,7 +42,7 @@ export default function MemoryCard({ memory }: { memory: Memory }) {
             />
           </Svg>
           <AppText>
-            <AppText bold style={styles.expenseAmount}>
+            <AppText bold style={{ color: theme.green }}>
               {memory.amount?.toLocaleString() ?? ''}
             </AppText>
             {' - '}
@@ -59,6 +60,5 @@ export default function MemoryCard({ memory }: { memory: Memory }) {
 const styles = StyleSheet.create({
   memoryCard: { gap: 10, position: 'relative', overflow: 'hidden' },
   expenseRibbon: { position: 'absolute', top: 0, left: 0 },
-  expenseAmount: { color: theme.green },
   date: { fontSize: 10 },
 });

@@ -15,7 +15,7 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 
 export function Page({
   children,
@@ -26,6 +26,7 @@ export function Page({
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const safeAreaPadding = {
     paddingTop: 16 + insets.top,
@@ -41,7 +42,7 @@ export function Page({
   ) : (
     <View style={[styles.pageContent, styles.fill, style, safeAreaPadding]}>{children}</View>
   );
-  return <View style={styles.page}>{content}</View>;
+  return <View style={[styles.page, { backgroundColor: theme.background }]}>{content}</View>;
 }
 
 export function AppText({
@@ -59,13 +60,16 @@ export function AppText({
   accent?: boolean;
   numberOfLines?: number;
 }) {
+  const { theme } = useTheme();
   return (
     <Text
       style={[
         styles.text,
-        bold && styles.bold,
-        muted && styles.muted,
-        accent && styles.accent,
+        {
+          color: accent ? theme.green : muted ? theme.muted : theme.white,
+          fontFamily: theme.font,
+          ...(bold ? { fontWeight: '700' as const } : {}),
+        },
         style,
       ]}
       numberOfLines={numberOfLines}
@@ -76,7 +80,8 @@ export function AppText({
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <AppText bold style={styles.sectionTitle}>{children}</AppText>;
+  const { theme } = useTheme();
+  return <AppText bold accent style={[styles.sectionTitle, { borderBottomColor: theme.border }]}>{children}</AppText>;
 }
 
 export function Card({
@@ -86,7 +91,8 @@ export function Card({
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const { theme } = useTheme();
+  return <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, style]}>{children}</View>;
 }
 
 export function Button({
@@ -104,6 +110,7 @@ export function Button({
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { theme } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -111,17 +118,19 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        secondary && styles.buttonSecondary,
-        danger && styles.buttonDanger,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
+        {
+          borderColor: danger ? theme.danger : secondary ? theme.border : theme.green,
+          backgroundColor: secondary || danger ? theme.surface : theme.surfaceRaised,
+        },
         style,
       ]}
     >
       <AppText
         bold
         accent={!secondary && !danger}
-        style={danger ? styles.dangerText : secondary ? styles.secondaryText : undefined}
+        style={danger ? { color: theme.danger } : secondary ? { color: theme.greenSoft } : undefined}
       >
         {title}
       </AppText>
@@ -135,6 +144,7 @@ export function TextField({
   style,
   ...props
 }: TextInputProps & { label: string; multiline?: boolean }) {
+  const { theme } = useTheme();
   return (
     <View style={styles.field}>
       <AppText muted style={styles.fieldLabel}>{label}</AppText>
@@ -143,6 +153,7 @@ export function TextField({
         selectionColor={theme.green}
         style={[
           styles.input,
+          inputThemeStyle(theme),
           multiline && styles.multiline,
           style,
         ]}
@@ -164,6 +175,7 @@ export function DateField({
   onChange: (date: Date) => void;
   mode?: 'date' | 'datetime' | 'time';
 }) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const display = mode === 'time'
     ? value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -178,7 +190,7 @@ export function DateField({
   return (
     <View style={styles.field}>
       <AppText muted style={styles.fieldLabel}>{label}</AppText>
-      <Pressable style={styles.input} onPress={() => setOpen(true)}>
+      <Pressable style={[styles.input, inputThemeStyle(theme)]} onPress={() => setOpen(true)}>
         <AppText>{display}</AppText>
       </Pressable>
       {open && (
@@ -202,6 +214,7 @@ export function OptionalDateField({
   value: Date | null;
   onChange: (date: Date | null) => void;
 }) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const selected = value ?? new Date();
   const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
@@ -216,7 +229,7 @@ export function OptionalDateField({
         <Pressable
           accessibilityRole="button"
           onPress={() => setOpen(true)}
-          style={[styles.input, styles.optionalDateInput]}
+          style={[styles.input, inputThemeStyle(theme), styles.optionalDateInput]}
         >
           <AppText>{value ? value.toLocaleDateString() : 'Not specified'}</AppText>
         </Pressable>
@@ -254,6 +267,7 @@ export function DateFilterField({
   onChange: (value: string) => void;
   compact?: boolean;
 }) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const selected = value ? new Date(`${value}T12:00:00`) : new Date();
 
@@ -272,7 +286,7 @@ export function DateFilterField({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${label} date`}
-          style={[styles.input, compact && styles.compactDateInput]}
+          style={[styles.input, inputThemeStyle(theme), compact && styles.compactDateInput]}
           onPress={() => setOpen(true)}
           onLongPress={() => value && onChange('')}
         >
@@ -315,12 +329,24 @@ export function Chip({
   onPress?: () => void;
   selected?: boolean;
 }) {
+  const { theme } = useTheme();
   const content = (
     <AppText accent={selected} style={styles.chipText}>{title}</AppText>
   );
-  if (!onPress) return <View style={styles.chip}>{content}</View>;
+  if (!onPress) {
+    return <View style={[styles.chip, { borderColor: theme.border, backgroundColor: theme.surface }]}>{content}</View>;
+  }
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          borderColor: selected ? theme.green : theme.border,
+          backgroundColor: selected ? theme.surfaceRaised : theme.surface,
+        },
+      ]}
+    >
       {content}
     </Pressable>
   );
@@ -331,23 +357,16 @@ export function BackButton({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: theme.background },
+  page: { flex: 1 },
   pageContent: { padding: 16, gap: 14 },
   fill: { flex: 1 },
-  text: { color: theme.white, fontFamily: theme.font, fontSize: 13, lineHeight: 20 },
-  bold: { fontFamily: theme.fontBold },
-  muted: { color: theme.muted },
-  accent: { color: theme.green },
+  text: { fontSize: 13, lineHeight: 20 },
   sectionTitle: {
-    color: theme.green,
     fontSize: 15,
     borderBottomWidth: 1,
-    borderBottomColor: theme.border,
     paddingBottom: 8,
   },
   card: {
-    backgroundColor: theme.surface,
-    borderColor: theme.border,
     borderWidth: 1,
     borderRadius: 8,
     padding: 14,
@@ -357,18 +376,12 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: theme.green,
     borderRadius: 6,
-    backgroundColor: theme.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonSecondary: { borderColor: theme.border, backgroundColor: theme.surface },
-  buttonDanger: { borderColor: theme.danger, backgroundColor: theme.surface },
   buttonDisabled: { opacity: 0.4 },
   pressed: { opacity: 0.7 },
-  secondaryText: { color: theme.greenSoft },
-  dangerText: { color: theme.danger },
   field: { gap: 6, flex: 1 },
   dateFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   optionalDateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -389,25 +402,27 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 46,
     borderWidth: 1,
-    borderColor: theme.border,
     borderRadius: 6,
-    backgroundColor: theme.surface,
-    color: theme.white,
-    fontFamily: theme.font,
     paddingHorizontal: 12,
     paddingVertical: 10,
     justifyContent: 'center',
   },
   multiline: { minHeight: 150, textAlignVertical: 'top' },
   chip: {
-    borderColor: theme.border,
     borderWidth: 1,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: theme.surface,
   },
-  chipSelected: { borderColor: theme.green, backgroundColor: '#112714' },
   chipText: { fontSize: 11 },
   backButton: { alignSelf: 'flex-start', paddingHorizontal: 10, minHeight: 38 },
 });
+
+function inputThemeStyle(theme: ReturnType<typeof useTheme>['theme']) {
+  return {
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    color: theme.white,
+    fontFamily: theme.font,
+  };
+}

@@ -1,12 +1,21 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { MemoixProvider } from '../MemoixProvider';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 
 export default function RootLayout() {
   return (
     <MemoixProvider>
-      <StatusBar style="light" />
+      <RootNavigator />
+    </MemoixProvider>
+  );
+}
+
+function RootNavigator() {
+  const { theme } = useTheme();
+  return (
+    <>
+      <StatusBar style={theme.statusBar} />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -18,6 +27,6 @@ export default function RootLayout() {
         <Stack.Screen name="person-editor" options={{ presentation: 'modal' }} />
         <Stack.Screen name="tag-editor" options={{ presentation: 'modal' }} />
       </Stack>
-    </MemoixProvider>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Memory, Person, Tag } from '../domain';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 import { AppText } from './ui';
 
 type Props = {
@@ -23,6 +23,7 @@ export default function EntityInput({
   memories,
   multiline = false,
 }: Props) {
+  const { theme } = useTheme();
   const suggestions = useMemo(() => {
     const match = value.match(/([#@&])([\p{L}\p{N}_]*)$/u);
     if (!match || match[2].length === 0) return [];
@@ -85,12 +86,25 @@ export default function EntityInput({
         placeholderTextColor={theme.muted}
         selectionColor={theme.green}
         autoCapitalize="sentences"
-        style={[styles.input, multiline && styles.multiline]}
+        style={[
+          styles.input,
+          {
+            color: theme.white,
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            fontFamily: theme.font,
+          },
+          multiline && styles.multiline,
+        ]}
       />
       {suggestions.length > 0 && (
         <View style={styles.suggestions}>
           {suggestions.map(item => (
-            <Pressable key={item.token} onPress={() => select(item.token)} style={styles.suggestion}>
+            <Pressable
+              key={item.token}
+              onPress={() => select(item.token)}
+              style={[styles.suggestion, { borderBottomColor: theme.border }]}
+            >
               <AppText accent>{item.label}</AppText>
             </Pressable>
           ))}
@@ -104,22 +118,16 @@ const styles = StyleSheet.create({
   container: { gap: 6 },
   label: { fontSize: 11 },
   input: {
-    color: theme.white,
-    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: theme.border,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
     minHeight: 46,
-    fontFamily: theme.font,
   },
   multiline: { minHeight: 140, textAlignVertical: 'top' },
   suggestions: {
     borderWidth: 1,
-    borderColor: theme.border,
     borderRadius: 6,
-    backgroundColor: theme.surfaceRaised,
   },
-  suggestion: { padding: 10, borderBottomWidth: 1, borderBottomColor: theme.border },
+  suggestion: { padding: 10, borderBottomWidth: 1 },
 });

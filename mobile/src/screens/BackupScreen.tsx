@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import {
   confirmRestore,
   exportBackup,
@@ -7,6 +7,7 @@ import {
   selectBackupDirectory,
 } from '../database';
 import { AppText, Button, Card, Page } from '../components/ui';
+import { ThemeName, themeNames, themes, useTheme } from '../theme';
 
 export default function BackupScreen({
   onRestored,
@@ -14,6 +15,15 @@ export default function BackupScreen({
   onRestored: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const { theme, themeName, setTheme } = useTheme();
+
+  const chooseTheme = async (nextTheme: ThemeName) => {
+    try {
+      await setTheme(nextTheme);
+    } catch (error) {
+      Alert.alert('Could not save theme', error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const exportFile = async () => {
     setBusy(true);
@@ -59,6 +69,37 @@ export default function BackupScreen({
   return (
     <Page>
       <AppText bold accent style={styles.title}>SETTINGS</AppText>
+      <Card>
+        <AppText bold accent>APPEARANCE</AppText>
+        <View style={styles.themeOptions}>
+          {themeNames.map(option => {
+            const palette = themes[option];
+            const selected = themeName === option;
+            return (
+              <Pressable
+                key={option}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                onPress={() => void chooseTheme(option)}
+                style={[
+                  styles.themeOption,
+                  {
+                    backgroundColor: selected ? theme.surfaceRaised : theme.surface,
+                    borderColor: selected ? theme.green : theme.border,
+                  },
+                ]}
+              >
+                <View style={styles.themeSwatches}>
+                  {[palette.background, palette.surface, palette.green, palette.muted].map(color => (
+                    <View key={color} style={[styles.themeSwatch, { backgroundColor: color }]} />
+                  ))}
+                </View>
+                <AppText bold={selected} accent={selected}>{option}</AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Card>
       <Card>
         <AppText bold>OFFLINE DATA</AppText>
         <AppText muted>
@@ -114,4 +155,16 @@ export default function BackupScreen({
 
 const styles = StyleSheet.create({
   title: { fontSize: 19, letterSpacing: 1.5 },
+  themeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  themeOption: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    minHeight: 76,
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    gap: 8,
+  },
+  themeSwatches: { flexDirection: 'row', gap: 5 },
+  themeSwatch: { width: 14, height: 14, borderRadius: 7 },
 });

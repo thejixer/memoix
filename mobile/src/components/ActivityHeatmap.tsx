@@ -1,7 +1,7 @@
 import { ComponentRef, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { localDateKey, Memory } from '../domain';
-import { theme } from '../theme';
+import { useTheme } from '../theme';
 import { AppText } from './ui';
 
 export default function ActivityHeatmap({
@@ -11,6 +11,7 @@ export default function ActivityHeatmap({
   memories: Memory[];
   year: number;
 }) {
+  const { theme } = useTheme();
   const chartRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
   const { weeks, counts } = useMemo(() => {
     const start = new Date(year, 0, 1, 12);

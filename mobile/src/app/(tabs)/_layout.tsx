@@ -1,11 +1,12 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { theme } from '../../theme';
+import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -26,7 +27,7 @@ export default function TabLayout() {
           paddingVertical: 0,
         },
         tabBarStyle: {
-          backgroundColor: '#080D08',
+          backgroundColor: theme.surface,
           borderTopColor: theme.border,
           height: 40 + insets.bottom,
           paddingTop: 0,
@@ -51,8 +52,8 @@ export default function TabLayout() {
               style={[style, styles.createButton]}
             >
               <View style={styles.plusIcon}>
-                <View style={styles.plusHorizontal} />
-                <View style={styles.plusVertical} />
+                <View style={[styles.plusHorizontal, { backgroundColor: theme.green }]} />
+                <View style={[styles.plusVertical, { backgroundColor: theme.green }]} />
               </View>
             </Pressable>
           ),
@@ -82,12 +83,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: PLUS_LENGTH,
     height: PLUS_THICKNESS,
-    backgroundColor: theme.green,
   },
   plusVertical: {
     position: 'absolute',
     width: PLUS_THICKNESS,
     height: PLUS_LENGTH,
-    backgroundColor: theme.green,
   },
 });
