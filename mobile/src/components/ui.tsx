@@ -169,11 +169,13 @@ export function DateField({
   value,
   onChange,
   mode = 'date',
+  compact = false,
 }: {
   label: string;
   value: Date;
   onChange: (date: Date) => void;
   mode?: 'date' | 'datetime' | 'time';
+  compact?: boolean;
 }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -188,10 +190,19 @@ export function DateField({
   };
 
   return (
-    <View style={styles.field}>
-      <AppText muted style={styles.fieldLabel}>{label}</AppText>
-      <Pressable style={[styles.input, inputThemeStyle(theme)]} onPress={() => setOpen(true)}>
-        <AppText>{display}</AppText>
+    <View style={[styles.field, compact && styles.compactExpenseDateField]}>
+      <AppText muted style={[styles.fieldLabel, compact && styles.compactExpenseDateLabel]}>{label}</AppText>
+      <Pressable
+        style={[
+          styles.input,
+          inputThemeStyle(theme),
+          compact && styles.compactExpenseDateInput,
+        ]}
+        onPress={() => setOpen(true)}
+      >
+        <AppText numberOfLines={compact ? 1 : undefined} style={compact && styles.compactExpenseDateText}>
+          {display}
+        </AppText>
       </Pressable>
       {open && (
         <DateTimePicker
@@ -399,6 +410,14 @@ const styles = StyleSheet.create({
   },
   compactDateText: { fontSize: 10 },
   fieldLabel: { fontSize: 11 },
+  compactExpenseDateField: { gap: 4 },
+  compactExpenseDateLabel: { fontSize: 9 },
+  compactExpenseDateInput: {
+    minHeight: 40,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  compactExpenseDateText: { fontSize: 10 },
   input: {
     minHeight: 46,
     borderWidth: 1,

@@ -121,16 +121,35 @@ export default function MemoryEditor({
           ))}
         </View>
         {type === 'expense' ? (
-          <View style={styles.expenseFields}>
-            <View style={styles.amountField}>
-              <TextField
-                label="AMOUNT"
-                value={formatAmountInput(amount)}
-                onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
+          <>
+            <View style={styles.expenseFields}>
+              <View style={styles.amountField}>
+                <TextField
+                  label="AMOUNT"
+                  value={formatAmountInput(amount)}
+                  onChangeText={value => setAmount(value.replace(/[^\d.]/g, ''))}
+                  keyboardType="decimal-pad"
+                  placeholder="0.00"
+                />
+              </View>
+              <DateField
+                label="DATE"
+                value={occurredAt}
+                onChange={date => setOccurredAt(date)}
+                mode="date"
+                compact
               />
-              <AppText muted style={styles.amountUnit}>TOMAN</AppText>
+              <DateField
+                label="TIME"
+                value={occurredAt}
+                onChange={date => {
+                  const next = new Date(occurredAt);
+                  next.setHours(date.getHours(), date.getMinutes());
+                  setOccurredAt(next);
+                }}
+                mode="time"
+                compact
+              />
             </View>
             <View style={styles.expenseContent}>
               <EntityInput
@@ -143,34 +162,36 @@ export default function MemoryEditor({
                 multiline
               />
             </View>
-          </View>
+          </>
         ) : (
-          <EntityInput
-            label="MEMORY"
-            value={content}
-            onChangeText={setContent}
-            people={people}
-            tags={tags}
-            memories={memories}
-            multiline
-          />
+          <>
+            <EntityInput
+              label="MEMORY"
+              value={content}
+              onChangeText={setContent}
+              people={people}
+              tags={tags}
+              memories={memories}
+              multiline
+            />
+            <DateField
+              label="DATE"
+              value={occurredAt}
+              onChange={date => setOccurredAt(date)}
+              mode="date"
+            />
+            <DateField
+              label="TIME"
+              value={occurredAt}
+              onChange={date => {
+                const next = new Date(occurredAt);
+                next.setHours(date.getHours(), date.getMinutes());
+                setOccurredAt(next);
+              }}
+              mode="time"
+            />
+          </>
         )}
-        <DateField
-          label="DATE"
-          value={occurredAt}
-          onChange={date => setOccurredAt(date)}
-          mode="date"
-        />
-        <DateField
-          label="TIME"
-          value={occurredAt}
-          onChange={date => {
-            const next = new Date(occurredAt);
-            next.setHours(date.getHours(), date.getMinutes());
-            setOccurredAt(next);
-          }}
-          mode="time"
-        />
         <AppText muted style={styles.helper}>
           #tag · @person · &place are linked automatically when saved.
         </AppText>
@@ -202,9 +223,8 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 52 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeButton: { flex: 1 },
-  expenseFields: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  amountField: { width: 112, gap: 4 },
-  amountUnit: { fontSize: 9, textAlign: 'center' },
-  expenseContent: { flex: 1, minWidth: 0 },
+  expenseFields: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  amountField: { flex: 1.1, minWidth: 0 },
+  expenseContent: { width: '100%' },
   helper: { fontSize: 11 },
 });
