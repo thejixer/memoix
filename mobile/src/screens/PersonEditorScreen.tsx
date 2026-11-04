@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { deletePerson, savePerson } from '../database';
 import { getTopEntities, localDateKey, Memory, Person } from '../domain';
-import { theme } from '../theme';
+import { entityColors, theme } from '../theme';
+import MemoryCard from '../components/MemoryCard';
 import { AppText, Button, Card, OptionalDateField, Page, TextField } from '../components/ui';
 
 export default function PersonEditorScreen({
@@ -148,27 +149,48 @@ export default function PersonEditorScreen({
         </View>
       </View>
       {person ? (
-        <View style={styles.entitySummaries}>
-          <View style={styles.entitySection}>
-            <AppText bold accent>TOP TAGS</AppText>
+        <View style={styles.topEntities}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
             {topTags.length ? (
-              topTags.map(item => (
-                <AppText key={item.name} muted>#{item.name} · {item.usageCount}</AppText>
+              topTags.map((tag, index) => (
+                <AppText
+                  key={tag.name}
+                  numberOfLines={1}
+                  style={[styles.entityText, { color: entityColors[index % entityColors.length] }]}
+                >
+                  {tag.name} ({tag.usageCount})
+                </AppText>
               ))
             ) : (
-              <AppText muted>No tags yet.</AppText>
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE TAGS</AppText>
             )}
-          </View>
-          <View style={styles.entitySection}>
-            <AppText bold accent>TOP MENTIONS</AppText>
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.entityRow}
+          >
             {topMentions.length ? (
-              topMentions.map(item => (
-                <AppText key={item.name} muted>@{item.name} · {item.usageCount}</AppText>
+              topMentions.map((mention, index) => (
+                <AppText
+                  key={mention.name}
+                  numberOfLines={1}
+                  style={[
+                    styles.entityText,
+                    { color: entityColors[(index + topTags.length) % entityColors.length] },
+                  ]}
+                >
+                  @{mention.name} ({mention.usageCount})
+                </AppText>
               ))
             ) : (
-              <AppText muted>No other mentions yet.</AppText>
+              <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE MENTIONS</AppText>
             )}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
       <View style={styles.tabs}>
@@ -188,14 +210,7 @@ export default function PersonEditorScreen({
         <View style={styles.memories}>
           <AppText bold accent>LINKED MEMORIES · {linkedMemories.length}</AppText>
           {linkedMemories.length ? (
-            linkedMemories.map(memory => (
-              <Card key={memory.id}>
-                <AppText>{memory.content}</AppText>
-                <AppText muted style={styles.memoryDate}>
-                  {new Date(memory.occurredAt).toLocaleString()}
-                </AppText>
-              </Card>
-            ))
+            linkedMemories.map(memory => <MemoryCard key={memory.id} memory={memory} />)
           ) : (
             <Card><AppText muted>No linked memories yet.</AppText></Card>
           )}
@@ -253,8 +268,10 @@ const styles = StyleSheet.create({
   personHeading: { flex: 1, gap: 3 },
   handle: { fontSize: 18 },
   title: { fontSize: 19, letterSpacing: 1.5 },
-  entitySummaries: { gap: 10 },
-  entitySection: { gap: 4 },
+  topEntities: { gap: 2, paddingHorizontal: 2 },
+  entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
+  entityText: { fontSize: 10, lineHeight: 18 },
+  emptyEntityText: { fontSize: 9 },
   avatarButton: { alignItems: 'center', gap: 4, paddingVertical: 4 },
   avatarLabel: { fontSize: 8 },
   avatar: { width: 76, height: 76, borderRadius: 38 },
@@ -271,7 +288,6 @@ const styles = StyleSheet.create({
   activeTab: { borderBottomColor: theme.green },
   form: { gap: 14 },
   memories: { gap: 10 },
-  memoryDate: { fontSize: 10 },
   hint: { fontSize: 10 },
 });
 
