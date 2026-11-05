@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Memory } from '../domain';
 import { useTheme } from '../theme';
@@ -16,6 +16,9 @@ function dateLabel(value: string) {
 
 export default function MemoryCard({ memory }: { memory: Memory }) {
   const { theme } = useTheme();
+  const hasEntities =
+    memory.tags.length > 0 || memory.people.length > 0 || memory.places.length > 0;
+
   return (
     <Card style={styles.memoryCard}>
       {memory.type === 'expense' ? (
@@ -52,6 +55,43 @@ export default function MemoryCard({ memory }: { memory: Memory }) {
       ) : (
         <AppText>{memory.content}</AppText>
       )}
+
+      {/* Showing the tags & mentions at the bottom of the note component */}
+      {hasEntities && (
+        <View style={styles.entityRow}>
+          {memory.people.map(person => (
+            <View
+              key={person}
+              style={[styles.entityBadge, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}
+            >
+              <AppText muted style={styles.entityBadgeText}>
+                @{person}
+              </AppText>
+            </View>
+          ))}
+          {memory.tags.map(tag => (
+            <View
+              key={tag}
+              style={[styles.entityBadge, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}
+            >
+              <AppText muted style={styles.entityBadgeText}>
+                #{tag}
+              </AppText>
+            </View>
+          ))}
+          {memory.places.map(place => (
+            <View
+              key={place}
+              style={[styles.entityBadge, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}
+            >
+              <AppText muted style={styles.entityBadgeText}>
+                &{place}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      )}
+
       <AppText muted style={styles.date}>{dateLabel(memory.occurredAt)}</AppText>
     </Card>
   );
@@ -61,4 +101,20 @@ const styles = StyleSheet.create({
   memoryCard: { gap: 10, position: 'relative', overflow: 'hidden' },
   expenseRibbon: { position: 'absolute', top: 0, left: 0 },
   date: { fontSize: 10 },
+  entityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  entityBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 0.8,
+  },
+  entityBadgeText: {
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
 });

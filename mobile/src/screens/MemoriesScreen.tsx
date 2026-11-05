@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import {
   calculateGapStats,
   filterMemories,
@@ -90,6 +91,8 @@ export default function MemoriesScreen({
         <View style={styles.titleRow}>
           <AppText bold accent style={styles.title}>MEMORIES</AppText>
         </View>
+
+        {/* Enhanced Search row with clear button and prominent since/until date filters */}
         <View style={styles.filterRow}>
           <View style={styles.search}>
             <EntityInput
@@ -113,18 +116,17 @@ export default function MemoriesScreen({
         </View>
         <View style={styles.dateRow}>
           <DateFilterField
-            compact
             label="SINCE"
             value={since}
             onChange={setSince}
           />
           <DateFilterField
-            compact
             label="UNTIL"
             value={until}
             onChange={setUntil}
           />
         </View>
+
         <View style={styles.topEntities}>
           <ScrollView
             horizontal
@@ -167,16 +169,27 @@ export default function MemoriesScreen({
             )}
           </ScrollView>
         </View>
+
+        {/* Enhanced Birthday Alert Announcement */}
         {upcomingBirthdays.length > 0 && (
-          <View style={styles.birthdays}>
-            {upcomingBirthdays.map(({ person, date }) => (
-              <AppText key={person.id} muted>
-                {(person.fullName.trim() || `@${person.mentionKey}`)} has birthday on{' '}
-                <AppText accent>{date.toLocaleDateString([], { month: 'short', day: 'numeric' })}</AppText>.
-              </AppText>
-            ))}
+          <View style={[styles.birthdayCard, { backgroundColor: `${theme.green}15`, borderColor: theme.green }]}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill={theme.green}>
+              <Path d="M12 6c1.11 0 2-.9 2-2 0-.38-.1-.73-.29-1.03L12 0l-1.71 2.97c-.19.3-.29.65-.29 1.03 0 1.1.9 2 2 2zm4.6 9.99l.25-.49H7.15l.25.49c.87 1.74 2.65 2.87 4.6 2.87s3.73-1.13 4.6-2.87zm-1.89-6.99c-.77-.92-1.92-1.5-3.21-1.5s-2.44.58-3.21 1.5H7.15c.67.76 1.48 1.37 2.4 1.78l-.34.68-.02.04c-.39.78-.63 1.63-.69 2.5h7c-.06-.87-.3-1.72-.69-2.5l-.36-.72c.92-.41 1.73-1.02 2.4-1.78h-1.13z" />
+            </Svg>
+            <View style={styles.birthdayTextGroup}>
+              {upcomingBirthdays.map(({ person, date }) => (
+                <AppText key={person.id} style={styles.birthdayItem}>
+                  <AppText bold>{person.fullName.trim() || `@${person.mentionKey}`}</AppText>
+                  {' has birthday on '}
+                  <AppText bold accent>
+                    {date.toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </AppText>
+                </AppText>
+              ))}
+            </View>
           </View>
         )}
+
         <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
           {(['memories', 'analytics'] as const).map(item => (
             <Pressable
@@ -263,16 +276,31 @@ export default function MemoriesScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  page: { paddingBottom: 16 },
+  page: { paddingBottom: 16, gap: 14 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: 19, letterSpacing: 1.5 },
   hint: { fontSize: 10 },
   filterRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   search: { flex: 1 },
   clearButton: { minHeight: 46, paddingHorizontal: 10 },
-  dateRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 8, marginTop: -8 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   topEntities: { gap: 2, paddingHorizontal: 2 },
-  birthdays: { gap: 2 },
+  birthdayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  birthdayTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  birthdayItem: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
   entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
   entityText: { fontSize: 10, lineHeight: 18 },
   emptyEntityText: { fontSize: 9 },
