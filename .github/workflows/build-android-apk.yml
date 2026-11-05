@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - mobile-app
+      - mobile
     paths:
       - mobile/**
       - .github/workflows/build-android-apk.yml
