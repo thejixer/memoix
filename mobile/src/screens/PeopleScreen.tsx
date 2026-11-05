@@ -1,8 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import {
+	Image,
+	NativeScrollEvent,
+	NativeSyntheticEvent,
+	Pressable,
+	StyleSheet,
+	View,
+} from 'react-native';
 import { Memory, Person, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 import { useTheme } from '../theme';
+
+const LIST_BATCH_SIZE = 40;
+const SCROLL_LOAD_THRESHOLD = 240;
 
 export default function PeopleScreen({
 	people,
@@ -21,15 +31,26 @@ export default function PeopleScreen({
 	const [tab, setTab] = useState<'persons' | 'tags'>('persons');
 	const [personQuery, setPersonQuery] = useState('');
 	const [tagQuery, setTagQuery] = useState('');
+	const paginationKey = `${tab}\u0000${tab === 'persons' ? personQuery : tagQuery}`;
+	const [pagination, setPagination] = useState({ key: '', count: LIST_BATCH_SIZE });
+	const visibleItemCount =
+		pagination.key === paginationKey ? pagination.count : LIST_BATCH_SIZE;
+	const personCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const memory of memories) {
+			for (const mentionKey of new Set(memory.people)) {
+				counts.set(mentionKey, (counts.get(mentionKey) ?? 0) + 1);
+			}
+		}
+		return counts;
+	}, [memories]);
 	const shownPeople = useMemo(() => {
 		const normalizedQuery = personQuery.toLocaleLowerCase();
 
 		return people
 			.map(person => ({
 				person,
-				count: memories.filter(memory =>
-					memory.people.includes(person.mentionKey),
-				).length,
+				count: personCounts.get(person.mentionKey) ?? 0,
 			}))
 			.filter(({ person }) =>
 				`${person.fullName} ${person.mentionKey}`
@@ -41,7 +62,7 @@ export default function PeopleScreen({
 					b.count - a.count ||
 					a.person.fullName.localeCompare(b.person.fullName),
 			);
-	}, [people, memories, personQuery]);
+	}, [people, personCounts, personQuery]);
 	const tagCounts = useMemo(() => {
 		const counts = new Map<string, number>();
 		for (const memory of memories) {
@@ -68,9 +89,26 @@ export default function PeopleScreen({
 				),
 		[tagCounts, tagQuery, tags],
 	);
+	const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+		if (
+			contentOffset.y + layoutMeasurement.height >=
+			contentSize.height - SCROLL_LOAD_THRESHOLD
+		) {
+			const total = tab === 'persons' ? shownPeople.length : shownTags.length;
+			setPagination(current => ({
+				key: paginationKey,
+				count: Math.min(
+					(current.key === paginationKey ? current.count : LIST_BATCH_SIZE) +
+						LIST_BATCH_SIZE,
+					total,
+				),
+			}));
+		}
+	};
 
 	return (
-		<Page>
+		<Page onScroll={onScroll}>
 			<View style={styles.header}>
 				<AppText bold accent style={styles.title}>
 					PEOPLE &amp; TAGS
@@ -106,7 +144,7 @@ export default function PeopleScreen({
 						/>
 					</View>
 					{shownPeople.length ? (
-						shownPeople.map(({ person, count }) => (
+						shownPeople.slice(0, visibleItemCount).map(({ person, count }) => (
 							<Pressable key={person.id} onPress={() => onOpenPerson(person)}>
 								<Card style={styles.personCard}>
 									{person.avatarBase64 ? (
@@ -173,7 +211,7 @@ export default function PeopleScreen({
 					</View>
 					{shownTags.length ? (
 						<View style={styles.tagGrid}>
-							{shownTags.map(({ tag, count }) => (
+							{shownTags.slice(0, visibleItemCount).map(({ tag, count }) => (
 								<Pressable
 									accessibilityRole="button"
 									key={tag.id}

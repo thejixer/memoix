@@ -29,6 +29,9 @@ type Props = {
   onEdit: (memory: Memory) => void;
 };
 
+const MEMORY_BATCH_SIZE = 40;
+const SCROLL_LOAD_THRESHOLD = 240;
+
 function dateLabel(value: string) {
   return new Date(value).toLocaleString([], {
     month: 'short',
@@ -64,10 +67,37 @@ export default function MemoriesScreen({
   const [since, setSince] = useState('');
   const [until, setUntil] = useState('');
   const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
+  const filterKey = `${query}\u0000${since}\u0000${until}`;
+  const [pagination, setPagination] = useState({ key: '', count: MEMORY_BATCH_SIZE });
+  const visibleMemoryCount =
+    pagination.key === filterKey ? pagination.count : MEMORY_BATCH_SIZE;
   const filtered = useMemo(
     () => filterMemories(memories, query, since, until),
     [memories, query, since, until],
   );
+  const onScroll = (event: {
+    nativeEvent: {
+      contentOffset: { y: number };
+      layoutMeasurement: { height: number };
+      contentSize: { height: number };
+    };
+  }) => {
+    if (tab !== 'memories') return;
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    if (
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - SCROLL_LOAD_THRESHOLD
+    ) {
+      setPagination(current => ({
+        key: filterKey,
+        count: Math.min(
+          (current.key === filterKey ? current.count : MEMORY_BATCH_SIZE) +
+            MEMORY_BATCH_SIZE,
+          filtered.length,
+        ),
+      }));
+    }
+  };
   const stats = useMemo(() => calculateGapStats(filtered), [filtered]);
   const upcomingBirthdays = useMemo(() => getUpcomingBirthdays(people), [people]);
   const searchedEntities = useMemo(() => extractEntities(query), [query]);
@@ -87,7 +117,7 @@ export default function MemoriesScreen({
 
   return (
     <View style={styles.screen}>
-      <Page style={styles.page}>
+      <Page style={styles.page} onScroll={onScroll}>
         <View style={styles.titleRow}>
           <AppText bold accent style={styles.title}>MEMORIES</AppText>
         </View>
@@ -206,7 +236,7 @@ export default function MemoriesScreen({
             {filtered.length === 0 ? (
               <Card><AppText muted>No memories match these filters.</AppText></Card>
             ) : (
-              filtered.map(memory => (
+              filtered.slice(0, visibleMemoryCount).map(memory => (
                 <Pressable key={memory.id} onPress={() => onEdit(memory)}>
                   <MemoryCard memory={memory} />
                 </Pressable>

@@ -1,5 +1,7 @@
 import { ReactNode, useState } from 'react';
 import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleProp,
@@ -21,10 +23,12 @@ export function Page({
   children,
   scroll = true,
   style,
+  onScroll,
 }: {
   children: ReactNode;
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -35,6 +39,8 @@ export function Page({
   const content = scroll ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
+      onScroll={onScroll}
+      scrollEventThrottle={200}
       contentContainerStyle={[styles.pageContent, style, safeAreaPadding]}
     >
       {children}
@@ -191,7 +197,7 @@ export function DateField({
 
   return (
     <View style={[styles.field, compact && styles.compactExpenseDateField]}>
-      <AppText muted style={[styles.fieldLabel, compact && styles.compactExpenseDateLabel]}>{label}</AppText>
+      <AppText muted style={styles.fieldLabel}>{label}</AppText>
       <Pressable
         style={[
           styles.input,
@@ -410,12 +416,11 @@ const styles = StyleSheet.create({
   },
   compactDateText: { fontSize: 10 },
   fieldLabel: { fontSize: 11 },
-  compactExpenseDateField: { gap: 4 },
-  compactExpenseDateLabel: { fontSize: 9 },
+  compactExpenseDateField: { gap: 6 },
   compactExpenseDateInput: {
-    minHeight: 40,
+    minHeight: 46,
     paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingVertical: 10,
   },
   compactExpenseDateText: { fontSize: 10 },
   input: {

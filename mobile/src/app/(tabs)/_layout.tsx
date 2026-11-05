@@ -20,21 +20,21 @@ export default function TabLayout() {
           fontFamily: theme.fontBold,
           fontSize: 11,
           letterSpacing: 0.3,
-          marginTop: 2,
-          marginBottom: 4,
+          marginTop: 1,
+          marginBottom: 2,
         },
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          paddingVertical: 6,
+          paddingVertical: 2,
         },
         tabBarStyle: {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: 64 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(6, insets.bottom),
+          height: 58 + insets.bottom,
+          paddingTop: 2,
+          paddingBottom: Math.max(4, insets.bottom),
           ...Platform.select({
             android: {
               elevation: 8,
@@ -148,7 +148,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   createButtonContainer: {
-    top: -12,
+    top: -10,
+    marginBottom: -10,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
