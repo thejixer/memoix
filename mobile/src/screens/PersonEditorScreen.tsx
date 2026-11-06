@@ -1,21 +1,32 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { deletePerson, savePerson } from '../database';
-import { getTopEntities, localDateKey, Memory, Person } from '../domain';
+import {
+	deletePerson,
+	EntityMemoryOverview,
+	getEntityMemoryOverview,
+	getEntityMemoryPage,
+	savePerson,
+} from '../database';
+import { localDateKey, Memory, Person } from '../domain';
 import { entityColors, useTheme } from '../theme';
 import MemoryCard from '../components/MemoryCard';
 import { AppText, Button, Card, OptionalDateField, Page, TextField } from '../components/ui';
 
+const MEMORY_BATCH_SIZE = 40;
+const SCROLL_LOAD_THRESHOLD = 240;
+const emptyOverview: EntityMemoryOverview = {
+	total: 0,
+	topTags: [],
+	topPeople: [],
+};
+
 export default function PersonEditorScreen({
   person,
-  memories,
-  onChanged,
   onClose,
 }: {
   person: Person | null;
-  memories: Memory[];
-  onChanged: () => Promise<void>;
   onClose: () => void;
 }) {
   const { theme } = useTheme();
@@ -31,15 +42,95 @@ export default function PersonEditorScreen({
   const [avatarMimeType, setAvatarMimeType] = useState<string | null>(
     person?.avatarMimeType ?? null,
   );
-  const linkedMemories = person
-    ? memories.filter(memory => memory.people.includes(person.mentionKey))
-    : [];
-  const topTags = getTopEntities(linkedMemories, 'tags');
-  const topMentions = getTopEntities(
-    linkedMemories,
-    'people',
-    person ? [person.mentionKey] : [],
+  const [linkedMemories, setLinkedMemories] = useState<Memory[]>([]);
+  const [overview, setOverview] = useState<EntityMemoryOverview>(emptyOverview);
+  const [loadingMemories, setLoadingMemories] = useState(Boolean(person));
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const loadMoreLock = useRef(false);
+  const requestGeneration = useRef(0);
+  const topTags = overview.topTags;
+  const topMentions = overview.topPeople;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!person) return;
+      let active = true;
+      const generation = ++requestGeneration.current;
+      setLoadingMemories(true);
+      setLoadingMore(false);
+      setLinkedMemories([]);
+      setOverview(emptyOverview);
+      setFailure(null);
+      Promise.all([
+        getEntityMemoryPage('person', person.id, MEMORY_BATCH_SIZE, 0),
+        getEntityMemoryOverview('person', person.id),
+      ])
+        .then(([page, entityOverview]) => {
+          if (!active) return;
+          setLinkedMemories(page.items);
+          setOverview(entityOverview);
+        })
+        .catch(error => {
+          if (active) {
+            setFailure(error instanceof Error ? error.message : String(error));
+          }
+        })
+        .finally(() => {
+          if (active) setLoadingMemories(false);
+        });
+      return () => {
+        active = false;
+        if (requestGeneration.current === generation) {
+          requestGeneration.current += 1;
+        }
+        loadMoreLock.current = false;
+      };
+    }, [person]),
   );
+
+  const onScroll = (event: {
+    nativeEvent: {
+      contentOffset: { y: number };
+      layoutMeasurement: { height: number };
+      contentSize: { height: number };
+    };
+  }) => {
+    if (
+      tab !== 'memories' ||
+      !person ||
+      loadingMemories ||
+      loadingMore ||
+      loadMoreLock.current ||
+      linkedMemories.length >= overview.total
+    ) return;
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    if (
+      contentOffset.y + layoutMeasurement.height >=
+      contentSize.height - SCROLL_LOAD_THRESHOLD
+    ) {
+      loadMoreLock.current = true;
+      setLoadingMore(true);
+      const generation = requestGeneration.current;
+      getEntityMemoryPage('person', person.id, MEMORY_BATCH_SIZE, linkedMemories.length)
+        .then(page => {
+          if (requestGeneration.current === generation) {
+            setLinkedMemories(current => [...current, ...page.items]);
+          }
+        })
+        .catch(error => {
+          if (requestGeneration.current === generation) {
+            setFailure(error instanceof Error ? error.message : String(error));
+          }
+        })
+        .finally(() => {
+          if (requestGeneration.current === generation) {
+            loadMoreLock.current = false;
+            setLoadingMore(false);
+          }
+        });
+    }
+  };
 
   const pickAvatar = async () => {
     try {
@@ -84,7 +175,6 @@ export default function PersonEditorScreen({
         avatarBase64,
         avatarMimeType,
       });
-      await onChanged();
       onClose();
     } catch (error) {
       Alert.alert('Could not save person', error instanceof Error ? error.message : String(error));
@@ -101,7 +191,6 @@ export default function PersonEditorScreen({
         onPress: async () => {
           try {
             await deletePerson(person.id);
-            await onChanged();
             onClose();
           } catch (error) {
             Alert.alert('Could not delete person', error instanceof Error ? error.message : String(error));
@@ -112,7 +201,7 @@ export default function PersonEditorScreen({
   };
 
   return (
-    <Page style={styles.page}>
+    <Page style={styles.page} onScroll={onScroll}>
       <Pressable onPress={onClose} style={styles.backButton}>
         <AppText accent>{'< BACK'}</AppText>
       </Pressable>
@@ -215,12 +304,16 @@ export default function PersonEditorScreen({
       </View>
       {tab === 'memories' ? (
         <View style={styles.memories}>
-          <AppText bold accent>LINKED MEMORIES · {linkedMemories.length}</AppText>
-          {linkedMemories.length ? (
+          <AppText bold accent>LINKED MEMORIES · {overview.total}</AppText>
+          {failure ? <Card><AppText>{failure}</AppText></Card> : null}
+          {loadingMemories && !linkedMemories.length ? (
+            <AppText muted>Loading memories…</AppText>
+          ) : linkedMemories.length ? (
             linkedMemories.map(memory => <MemoryCard key={memory.id} memory={memory} />)
           ) : (
             <Card><AppText muted>No linked memories yet.</AppText></Card>
           )}
+          {loadingMore ? <AppText muted>Loading more…</AppText> : null}
         </View>
       ) : (
         <View style={styles.form}>

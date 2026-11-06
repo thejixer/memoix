@@ -9,11 +9,7 @@ import {
 import { AppText, Button, Card, Page } from '../components/ui';
 import { ThemeName, themeNames, themes, useTheme } from '../theme';
 
-export default function BackupScreen({
-  onRestored,
-}: {
-  onRestored: () => Promise<void>;
-}) {
+export default function BackupScreen() {
   const [busy, setBusy] = useState(false);
   const { theme, themeName, setTheme } = useTheme();
 
@@ -56,7 +52,6 @@ export default function BackupScreen({
     try {
       const restored = await restoreBackup();
       if (restored) {
-        await onRestored();
         Alert.alert('Backup restored', 'Your local data has been replaced with the backup.');
       }
     } catch (error) {

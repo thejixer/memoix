@@ -16,6 +16,7 @@ import {
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 
@@ -153,7 +154,7 @@ export function TextField({
   const { theme } = useTheme();
   return (
     <View style={styles.field}>
-      <AppText muted style={styles.fieldLabel}>{label}</AppText>
+      {label ? <AppText muted style={styles.fieldLabel}>{label}</AppText> : null}
       <TextInput
         placeholderTextColor={theme.muted}
         selectionColor={theme.green}
@@ -307,9 +308,34 @@ export function DateFilterField({
           onPress={() => setOpen(true)}
           onLongPress={() => value && onChange('')}
         >
-          <AppText numberOfLines={1} style={compact && styles.compactDateText}>
-            {label}: {value || 'N/A'}
-          </AppText>
+          {compact ? (
+            <View style={styles.compactDateContent}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
+                  stroke={theme.green}
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+              <View style={styles.compactDateLabels}>
+                <AppText muted numberOfLines={1} style={styles.compactDateLabel}>
+                  {label}
+                </AppText>
+                <AppText numberOfLines={1} style={styles.compactDateText}>
+                  {value
+                    ? new Date(`${value}T12:00:00`).toLocaleDateString([], {
+                        month: 'numeric',
+                        day: 'numeric',
+                      })
+                    : '—'}
+                </AppText>
+              </View>
+            </View>
+          ) : (
+            <AppText numberOfLines={1}>{label}: {value || 'N/A'}</AppText>
+          )}
         </Pressable>
         {value ? (
           <Pressable
@@ -405,16 +431,21 @@ const styles = StyleSheet.create({
   optionalDateInput: { flex: 1 },
   clearDate: { paddingHorizontal: 4, paddingVertical: 8 },
   clearDateCompact: { paddingHorizontal: 4, paddingVertical: 4 },
-  compactDateField: { flex: 0, flexDirection: 'row', alignItems: 'center' },
-  compactDateRow: { flex: 0 },
+  compactDateField: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  compactDateRow: { flex: 1, minWidth: 0 },
   compactDateInput: {
-    minWidth: 110,
-    minHeight: 34,
-    paddingHorizontal: 8,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
+    paddingHorizontal: 6,
     paddingVertical: 4,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  compactDateText: { fontSize: 10 },
+  compactDateContent: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 },
+  compactDateLabels: { flex: 1, minWidth: 0 },
+  compactDateLabel: { fontSize: 8, lineHeight: 10 },
+  compactDateText: { fontSize: 10, lineHeight: 13 },
   fieldLabel: { fontSize: 11 },
   compactExpenseDateField: { gap: 6 },
   compactExpenseDateInput: {

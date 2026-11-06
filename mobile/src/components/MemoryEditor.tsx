@@ -5,7 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Memory, MemoryType, Person, Tag } from '../domain';
+import { Memory, MemoryType } from '../domain';
 import { deleteMemory, saveMemory } from '../database';
 import EntityInput from './EntityInput';
 import { AppText, Button, DateField, Page, TextField } from './ui';
@@ -18,20 +18,12 @@ function formatAmountInput(value: string) {
 
 type Props = {
   memory: Memory | null;
-  people: Person[];
-  tags: Tag[];
-  memories: Memory[];
   onClose: () => void;
-  onSaved: () => Promise<void>;
 };
 
 export default function MemoryEditor({
   memory,
-  people,
-  tags,
-  memories,
   onClose,
-  onSaved,
 }: Props) {
   const [type, setType] = useState<MemoryType>(memory?.type ?? 'memo');
   const [content, setContent] = useState(memory?.content ?? '');
@@ -71,7 +63,6 @@ export default function MemoryEditor({
         amount: numericAmount,
         occurredAt: occurredAt.toISOString(),
       });
-      await onSaved();
       onClose();
     } catch (error) {
       Alert.alert('Could not save memory', error instanceof Error ? error.message : String(error));
@@ -91,7 +82,7 @@ export default function MemoryEditor({
           setSaving(true);
           try {
             await deleteMemory(memory.id);
-            await onSaved();
+            onClose();
           } catch (error) {
             Alert.alert('Could not delete memory', error instanceof Error ? error.message : String(error));
           } finally {
@@ -156,9 +147,6 @@ export default function MemoryEditor({
                 label="MEMORY"
                 value={content}
                 onChangeText={setContent}
-                people={people}
-                tags={tags}
-                memories={memories}
                 multiline
               />
             </View>
@@ -169,9 +157,6 @@ export default function MemoryEditor({
               label="MEMORY"
               value={content}
               onChangeText={setContent}
-              people={people}
-              tags={tags}
-              memories={memories}
               multiline
             />
             <DateField

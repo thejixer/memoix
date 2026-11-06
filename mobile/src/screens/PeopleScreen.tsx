@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
 	Image,
 	NativeScrollEvent,
@@ -7,23 +7,21 @@ import {
 	StyleSheet,
 	View,
 } from 'react-native';
-import { Memory, Person, Tag } from '../domain';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { useFocusEffect } from 'expo-router';
+import { PersonListItem, TagListItem, getPeopleListPage, getTagsListPage } from '../database';
+import { Person, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 import { useTheme } from '../theme';
 
 const LIST_BATCH_SIZE = 40;
+const TAG_BATCH_SIZE = LIST_BATCH_SIZE * 2;
 const SCROLL_LOAD_THRESHOLD = 240;
 
 export default function PeopleScreen({
-	people,
-	memories,
-	tags,
 	onOpenPerson,
 	onOpenTag,
 }: {
-	people: Person[];
-	memories: Memory[];
-	tags: Tag[];
 	onOpenPerson: (person: Person | null) => void;
 	onOpenTag: (tag: Tag | null) => void;
 }) {
@@ -31,79 +29,99 @@ export default function PeopleScreen({
 	const [tab, setTab] = useState<'persons' | 'tags'>('persons');
 	const [personQuery, setPersonQuery] = useState('');
 	const [tagQuery, setTagQuery] = useState('');
-	const paginationKey = `${tab}\u0000${tab === 'persons' ? personQuery : tagQuery}`;
-	const [pagination, setPagination] = useState({ key: '', count: LIST_BATCH_SIZE });
-	const visibleItemCount =
-		pagination.key === paginationKey ? pagination.count : LIST_BATCH_SIZE;
-	const personCounts = useMemo(() => {
-		const counts = new Map<string, number>();
-		for (const memory of memories) {
-			for (const mentionKey of new Set(memory.people)) {
-				counts.set(mentionKey, (counts.get(mentionKey) ?? 0) + 1);
-			}
-		}
-		return counts;
-	}, [memories]);
-	const shownPeople = useMemo(() => {
-		const normalizedQuery = personQuery.toLocaleLowerCase();
+	const [people, setPeople] = useState<PersonListItem[]>([]);
+	const [tags, setTags] = useState<TagListItem[]>([]);
+	const [totalItems, setTotalItems] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [failure, setFailure] = useState<string | null>(null);
+	const loadMoreLock = useRef(false);
+	const requestGeneration = useRef(0);
 
-		return people
-			.map(person => ({
-				person,
-				count: personCounts.get(person.mentionKey) ?? 0,
-			}))
-			.filter(({ person }) =>
-				`${person.fullName} ${person.mentionKey}`
-					.toLocaleLowerCase()
-					.includes(normalizedQuery),
-			)
-			.sort(
-				(a, b) =>
-					b.count - a.count ||
-					a.person.fullName.localeCompare(b.person.fullName),
-			);
-	}, [people, personCounts, personQuery]);
-	const tagCounts = useMemo(() => {
-		const counts = new Map<string, number>();
-		for (const memory of memories) {
-			for (const name of new Set(
-				memory.tags.map(value => value.toLocaleLowerCase()),
-			)) {
-				counts.set(name, (counts.get(name) ?? 0) + 1);
-			}
-		}
-		return counts;
-	}, [memories]);
-	const shownTags = useMemo(
-		() =>
-			tags
-				.filter(item =>
-					item.name.toLocaleLowerCase().includes(tagQuery.toLocaleLowerCase()),
-				)
-				.map(item => ({
-					tag: item,
-					count: tagCounts.get(item.name.toLocaleLowerCase()) ?? 0,
-				}))
-				.sort(
-					(a, b) => b.count - a.count || a.tag.name.localeCompare(b.tag.name),
-				),
-		[tagCounts, tagQuery, tags],
+	useFocusEffect(
+		useCallback(() => {
+			let active = true;
+			const generation = ++requestGeneration.current;
+			setLoading(true);
+			setLoadingMore(false);
+			setFailure(null);
+			setTotalItems(0);
+			if (tab === 'persons') setPeople([]);
+			else setTags([]);
+			loadMoreLock.current = false;
+			const timer = setTimeout(() => {
+				const request = tab === 'persons'
+					? getPeopleListPage(personQuery, LIST_BATCH_SIZE, 0).then(page => {
+						if (!active) return;
+						setPeople(page.items);
+						setTotalItems(page.total);
+					})
+					: getTagsListPage(tagQuery, TAG_BATCH_SIZE, 0).then(page => {
+						if (!active) return;
+						setTags(page.items);
+						setTotalItems(page.total);
+					});
+				request
+					.catch(error => {
+						if (active) {
+							setFailure(error instanceof Error ? error.message : String(error));
+						}
+					})
+					.finally(() => {
+						if (active) setLoading(false);
+					});
+			}, 150);
+			return () => {
+				active = false;
+				if (requestGeneration.current === generation) {
+					requestGeneration.current += 1;
+				}
+				clearTimeout(timer);
+				loadMoreLock.current = false;
+			};
+		}, [personQuery, tab, tagQuery]),
 	);
+
 	const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const currentItems = tab === 'persons' ? people : tags;
+		const batchSize = tab === 'persons' ? LIST_BATCH_SIZE : TAG_BATCH_SIZE;
+		if (
+			loading ||
+			loadingMore ||
+			loadMoreLock.current ||
+			currentItems.length >= totalItems
+		) return;
 		const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
 		if (
 			contentOffset.y + layoutMeasurement.height >=
 			contentSize.height - SCROLL_LOAD_THRESHOLD
 		) {
-			const total = tab === 'persons' ? shownPeople.length : shownTags.length;
-			setPagination(current => ({
-				key: paginationKey,
-				count: Math.min(
-					(current.key === paginationKey ? current.count : LIST_BATCH_SIZE) +
-						LIST_BATCH_SIZE,
-					total,
-				),
-			}));
+			loadMoreLock.current = true;
+			setLoadingMore(true);
+			const generation = requestGeneration.current;
+			const request = tab === 'persons'
+				? getPeopleListPage(personQuery, batchSize, currentItems.length).then(page => {
+					if (requestGeneration.current !== generation) return;
+					setPeople(current => [...current, ...page.items]);
+					setTotalItems(page.total);
+				})
+				: getTagsListPage(tagQuery, batchSize, currentItems.length).then(page => {
+					if (requestGeneration.current !== generation) return;
+					setTags(current => [...current, ...page.items]);
+					setTotalItems(page.total);
+				});
+			request
+				.catch(error => {
+					if (requestGeneration.current === generation) {
+						setFailure(error instanceof Error ? error.message : String(error));
+					}
+				})
+				.finally(() => {
+					if (requestGeneration.current === generation) {
+						loadMoreLock.current = false;
+						setLoadingMore(false);
+					}
+				});
 		}
 	};
 
@@ -121,7 +139,10 @@ export default function PeopleScreen({
 						accessibilityRole="tab"
 						accessibilityState={{ selected: tab === item }}
 						onPress={() => setTab(item)}
-						style={[styles.tab, tab === item && { borderBottomColor: theme.green }]}
+						style={[
+							styles.tab,
+							tab === item && { borderBottomColor: theme.green },
+						]}
 					>
 						<AppText bold accent={tab === item}>
 							{item.toUpperCase()}
@@ -129,22 +150,28 @@ export default function PeopleScreen({
 					</Pressable>
 				))}
 			</View>
+			{failure ? <Card><AppText>{failure}</AppText></Card> : null}
 			{tab === 'persons' ? (
 				<>
 					<View style={styles.sectionHeader}>
-						<TextField
-							label="FIND A PERSON"
-							value={personQuery}
-							onChangeText={setPersonQuery}
-						/>
+						<View style={styles.searchField}>
+							<TextField
+								label=""
+								value={personQuery}
+								placeholder="FIND A PERSON"
+								onChangeText={setPersonQuery}
+								style={styles.searchInput}
+							/>
+							<SearchIcon />
+						</View>
 						<Button
 							title="+ ADD"
 							onPress={() => onOpenPerson(null)}
 							style={styles.addButton}
 						/>
 					</View>
-					{shownPeople.length ? (
-						shownPeople.slice(0, visibleItemCount).map(({ person, count }) => (
+					{people.length ? (
+						people.map(({ person, count }) => (
 							<Pressable key={person.id} onPress={() => onOpenPerson(person)}>
 								<Card style={styles.personCard}>
 									{person.avatarBase64 ? (
@@ -159,7 +186,10 @@ export default function PeopleScreen({
 											style={[
 												styles.listAvatar,
 												styles.avatarEmpty,
-												{ backgroundColor: theme.surfaceRaised, borderColor: theme.green },
+												{
+													backgroundColor: theme.surfaceRaised,
+													borderColor: theme.green,
+												},
 											]}
 										>
 											<AppText accent>
@@ -190,7 +220,9 @@ export default function PeopleScreen({
 					) : (
 						<Card>
 							<AppText muted>
-								No persons yet. Add one or mention someone in a memory.
+								{loading
+									? 'Loading people…'
+									: 'No persons yet. Add one or mention someone in a memory.'}
 							</AppText>
 						</Card>
 					)}
@@ -198,20 +230,25 @@ export default function PeopleScreen({
 			) : (
 				<>
 					<View style={styles.sectionHeader}>
-						<TextField
-							label="FIND A TAG"
-							value={tagQuery}
-							onChangeText={setTagQuery}
-						/>
+						<View style={styles.searchField}>
+							<TextField
+								label=""
+								value={tagQuery}
+								placeholder="FIND A TAG"
+								onChangeText={setTagQuery}
+								style={styles.searchInput}
+							/>
+							<SearchIcon />
+						</View>
 						<Button
 							title="+ ADD"
 							onPress={() => onOpenTag(null)}
 							style={styles.addButton}
 						/>
 					</View>
-					{shownTags.length ? (
+					{tags.length ? (
 						<View style={styles.tagGrid}>
-							{shownTags.slice(0, visibleItemCount).map(({ tag, count }) => (
+							{tags.map(({ tag, count }) => (
 								<Pressable
 									accessibilityRole="button"
 									key={tag.id}
@@ -228,13 +265,28 @@ export default function PeopleScreen({
 					) : (
 						<Card>
 							<AppText muted>
-								No tags yet. Add one or use #tag in a memory.
+								{loading
+									? 'Loading tags…'
+									: 'No tags yet. Add one or use #tag in a memory.'}
 							</AppText>
 						</Card>
 					)}
 				</>
 			)}
+			{loadingMore ? <AppText muted>Loading more…</AppText> : null}
 		</Page>
+	);
+}
+
+function SearchIcon() {
+	const { theme } = useTheme();
+	return (
+		<View pointerEvents="none" style={styles.searchIcon}>
+			<Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+				<Circle cx={10.8} cy={10.8} r={6.3} stroke={theme.muted} strokeWidth={2} />
+				<Path d="m15.5 15.5 5 5" stroke={theme.muted} strokeWidth={2} strokeLinecap="round" />
+			</Svg>
+		</View>
 	);
 }
 
@@ -253,6 +305,9 @@ const styles = StyleSheet.create({
 		borderBottomColor: 'transparent',
 	},
 	sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+	searchField: { flex: 1, position: 'relative' },
+	searchInput: { paddingLeft: 38 },
+	searchIcon: { position: 'absolute', left: 12, top: 14 },
 	addButton: { minHeight: 46, paddingHorizontal: 10 },
 	personCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 	personInfo: { flex: 1, gap: 2 },

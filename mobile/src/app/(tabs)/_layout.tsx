@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   createButtonContainer: {
-    top: -10,
+    top: 0,
     marginBottom: -10,
     justifyContent: 'center',
     alignItems: 'center',

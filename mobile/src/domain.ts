@@ -22,7 +22,11 @@ export type Person = {
   avatarMimeType: string | null;
 };
 
-export type UpcomingBirthday = { person: Person; date: Date; daysUntil: number };
+export type UpcomingBirthday = {
+  person: Pick<Person, 'id' | 'fullName' | 'mentionKey' | 'birthdate'>;
+  date: Date;
+  daysUntil: number;
+};
 
 export type Tag = { id: number; name: string };
 
@@ -55,7 +59,7 @@ export function localDateKey(value: string | Date): string {
 }
 
 export function getUpcomingBirthdays(
-  people: Person[],
+  people: readonly Pick<Person, 'id' | 'fullName' | 'mentionKey' | 'birthdate'>[],
   today = new Date(),
   daysAhead = 7,
 ): UpcomingBirthday[] {

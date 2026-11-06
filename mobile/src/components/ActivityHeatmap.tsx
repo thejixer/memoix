@@ -1,19 +1,19 @@
 import { ComponentRef, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { localDateKey, Memory } from '../domain';
+import { localDateKey } from '../domain';
 import { useTheme } from '../theme';
 import { AppText } from './ui';
 
 export default function ActivityHeatmap({
-  memories,
+  counts,
   year,
 }: {
-  memories: Memory[];
+  counts: Record<string, number>;
   year: number;
 }) {
   const { theme } = useTheme();
   const chartRef = useRef<ComponentRef<typeof ScrollView> | null>(null);
-  const { weeks, counts } = useMemo(() => {
+  const { weeks } = useMemo(() => {
     const start = new Date(year, 0, 1, 12);
     const end = new Date(year, 11, 31, 12);
     const gridStart = new Date(year, 0, 1 - start.getDay(), 12);
@@ -33,18 +33,10 @@ export default function ActivityHeatmap({
       }
       result.push(week);
     }
-    const values = new Map<string, number>();
-    const firstDayKey = localDateKey(start);
-    const lastDayKey = localDateKey(end);
-    for (const memory of memories) {
-      const key = localDateKey(memory.occurredAt);
-      if (key < firstDayKey || key > lastDayKey) continue;
-      values.set(key, (values.get(key) ?? 0) + 1);
-    }
-    return { weeks: result, counts: values };
-  }, [memories, year]);
+    return { weeks: result };
+  }, [year]);
 
-  const max = Math.max(1, ...counts.values());
+  const max = Math.max(1, ...Object.values(counts));
   const monthLabels = weeks.map((week, index) => {
     const date = week.find((day): day is Date => day !== null);
     if (!date) return '';
@@ -91,7 +83,7 @@ export default function ActivityHeatmap({
                 {week.map((date, dayIndex) => {
                   if (!date) return <View key={dayIndex} style={styles.emptyCell} />;
                   const key = localDateKey(date);
-                  const count = counts.get(key) ?? 0;
+                  const count = counts[key] ?? 0;
                   const opacity = count === 0 ? 0.16 : 0.35 + (count / max) * 0.65;
                   return (
                     <View

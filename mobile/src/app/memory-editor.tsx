@@ -1,14 +1,46 @@
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { AppText, BackButton, Page } from '../components/ui';
+import { AppText, BackButton, Card, Page } from '../components/ui';
 import MemoryEditor from '../components/MemoryEditor';
-import { useMemoix } from '../MemoixProvider';
+import { getMemoryById } from '../database';
+import { Memory } from '../domain';
 
 export default function MemoryEditorRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { memories, people, tags, refresh } = useMemoix();
-  const memory = id ? memories.find(item => item.id === Number(id)) : null;
+  const [memory, setMemory] = useState<Memory | null>(null);
+  const [loading, setLoading] = useState(Boolean(id));
+  const [failure, setFailure] = useState<string | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    if (!id) return () => { active = false; };
+    getMemoryById(Number(id))
+      .then(result => {
+        if (active) setMemory(result);
+      })
+      .catch(error => {
+        if (active) setFailure(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return <Page><AppText muted>Loading memory…</AppText></Page>;
+  }
+  if (failure) {
+    return (
+      <Page>
+        <BackButton onPress={() => router.back()} />
+        <Card><AppText>{failure}</AppText></Card>
+      </Page>
+    );
+  }
   if (id && !memory) {
     return (
       <Page>
@@ -21,15 +53,8 @@ export default function MemoryEditorRoute() {
   return (
     <MemoryEditor
       key={memory?.id ?? 'new'}
-      memory={memory ?? null}
-      people={people}
-      tags={tags}
-      memories={memories}
+      memory={memory}
       onClose={() => router.back()}
-      onSaved={async () => {
-        await refresh();
-        router.back();
-      }}
     />
   );
 }
