@@ -64,7 +64,7 @@ export default function EntityInput({
   };
 
   return (
-    <View style={[styles.container, suggestions.length > 0 && styles.containerWithSuggestions]}>
+    <View style={styles.container}>
       {label ? <AppText muted style={styles.label}>{label}</AppText> : null}
       <View>
         <TextInput
@@ -103,7 +103,6 @@ export default function EntityInput({
             {
               backgroundColor: theme.surface,
               borderColor: theme.border,
-              top: multiline ? (label ? 172 : 146) : label ? 72 : 52,
             },
           ]}
         >
@@ -123,8 +122,7 @@ export default function EntityInput({
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 6, position: 'relative' },
-  containerWithSuggestions: { zIndex: 20, elevation: 20 },
+  container: { gap: 6 },
   label: { fontSize: 11 },
   input: {
     borderWidth: 1,
@@ -137,12 +135,6 @@ const styles = StyleSheet.create({
   searchIcon: { position: 'absolute', left: 12, top: 14 },
   multiline: { minHeight: 140, textAlignVertical: 'top' },
   suggestions: {
-    position: 'absolute',
-    top: 52,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    elevation: 20,
     borderWidth: 1,
     borderRadius: 6,
     overflow: 'hidden',

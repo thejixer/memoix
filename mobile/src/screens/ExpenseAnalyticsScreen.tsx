@@ -172,26 +172,30 @@ export default function ExpenseAnalyticsScreen() {
     <Page onScroll={onScroll}>
       <AppText bold accent style={styles.title}>EXPENSE ANALYTICS</AppText>
       <View style={styles.dates}>
-        <DateFilterField
-          label="SINCE"
-          value={since}
-          compact
-          clearInside
-          onChange={value => {
-            setSince(value);
-            setSelectedDate(null);
-          }}
-        />
-        <DateFilterField
-          label="UNTIL"
-          value={until}
-          compact
-          clearInside
-          onChange={value => {
-            setUntil(value);
-            setSelectedDate(null);
-          }}
-        />
+        <View style={styles.dateSlot}>
+          <DateFilterField
+            label="SINCE"
+            value={since}
+            compact
+            clearInside
+            onChange={value => {
+              setSince(value);
+              setSelectedDate(null);
+            }}
+          />
+        </View>
+        <View style={styles.dateSlot}>
+          <DateFilterField
+            label="UNTIL"
+            value={until}
+            compact
+            clearInside
+            onChange={value => {
+              setUntil(value);
+              setSelectedDate(null);
+            }}
+          />
+        </View>
       </View>
       {failure ? <Card><AppText>{failure}</AppText></Card> : null}
       <View style={styles.statsGrid}>
@@ -249,6 +253,7 @@ export default function ExpenseAnalyticsScreen() {
 const styles = StyleSheet.create({
   title: { fontSize: 18, letterSpacing: 1 },
   dates: { flexDirection: 'row', width: '100%', gap: 8 },
+  dateSlot: { width: '48%' },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stat: { width: '48%', minHeight: 76, justifyContent: 'space-between' },
   statLabel: { fontSize: 10 },
