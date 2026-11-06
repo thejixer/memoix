@@ -235,24 +235,26 @@ export default function MemoriesScreen({
 						MEMORIES
 					</AppText>
 					<View style={styles.dateRow}>
-						<DateFilterField
-							label="SINCE"
-							value={since}
-							onChange={setSince}
-							compact
-							small
-							clearInside
-							showYear
-						/>
-						<DateFilterField
-							label="UNTIL"
-							value={until}
-							onChange={setUntil}
-							compact
-							small
-							clearInside
-							showYear
-						/>
+						<View style={styles.dateFilters}>
+							<DateFilterField
+								label="SINCE"
+								value={since}
+								onChange={setSince}
+								compact
+								small
+								clearInside
+								showYear
+							/>
+							<DateFilterField
+								label="UNTIL"
+								value={until}
+								onChange={setUntil}
+								compact
+								small
+								clearInside
+								showYear
+							/>
+						</View>
 					</View>
 				</View>
 
@@ -492,12 +494,13 @@ const styles = StyleSheet.create({
 	search: { flex: 1, zIndex: 2, overflow: 'visible' },
 	clearButton: { minHeight: 46, paddingHorizontal: 10 },
 	dateRow: {
+		flex: 1,
+		minWidth: 0,
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 6,
-		flexShrink: 1,
-		marginLeft: 4,
+		justifyContent: 'flex-end',
 	},
+	dateFilters: { width: '85%', flexDirection: 'row', alignItems: 'center', gap: 6 },
 	topEntities: { gap: 2, paddingHorizontal: 2 },
 	birthdayCard: {
 		flexDirection: 'row',

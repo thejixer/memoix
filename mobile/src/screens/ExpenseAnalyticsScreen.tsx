@@ -176,6 +176,7 @@ export default function ExpenseAnalyticsScreen() {
           label="SINCE"
           value={since}
           compact
+          clearInside
           onChange={value => {
             setSince(value);
             setSelectedDate(null);
@@ -185,6 +186,7 @@ export default function ExpenseAnalyticsScreen() {
           label="UNTIL"
           value={until}
           compact
+          clearInside
           onChange={value => {
             setUntil(value);
             setSelectedDate(null);
@@ -246,7 +248,7 @@ export default function ExpenseAnalyticsScreen() {
 
 const styles = StyleSheet.create({
   title: { fontSize: 18, letterSpacing: 1 },
-  dates: { flexDirection: 'row', gap: 8 },
+  dates: { flexDirection: 'row', width: '100%', gap: 8 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stat: { width: '48%', minHeight: 76, justifyContent: 'space-between' },
   statLabel: { fontSize: 10 },
