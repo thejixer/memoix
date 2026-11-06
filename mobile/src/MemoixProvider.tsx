@@ -5,14 +5,16 @@ import {
   useState,
 } from 'react';
 import {
-  ActivityIndicator,
   SafeAreaView,
   StyleSheet,
   useColorScheme,
 } from 'react-native';
 import { getAppSetting, initializeDatabase, setAppSetting } from './database';
 import { AppText } from './components/ui';
+import StartupSplash from './components/StartupSplash';
 import { font, isThemeName, ThemeContext, ThemeName, themes } from './theme';
+
+const MINIMUM_SPLASH_DURATION_MS = 1000;
 
 export function MemoixProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
@@ -22,15 +24,34 @@ export function MemoixProvider({ children }: { children: ReactNode }) {
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+    const startedAt = Date.now();
+    let hideSplashTimeout: ReturnType<typeof setTimeout> | null = null;
+
     initializeDatabase()
       .then(async () => {
         const savedTheme = await getAppSetting('theme');
-        if (isThemeName(savedTheme)) setThemePreference(savedTheme);
+        if (active && isThemeName(savedTheme)) setThemePreference(savedTheme);
       })
       .catch(error => {
-        setFailure(error instanceof Error ? error.message : String(error));
+        if (active) {
+          setFailure(error instanceof Error ? error.message : String(error));
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        const remainingSplashTime = Math.max(
+          0,
+          MINIMUM_SPLASH_DURATION_MS - (Date.now() - startedAt),
+        );
+        hideSplashTimeout = setTimeout(() => {
+          if (active) setLoading(false);
+        }, remainingSplashTime);
+      });
+
+    return () => {
+      active = false;
+      if (hideSplashTimeout) clearTimeout(hideSplashTimeout);
+    };
   }, []);
 
   const setTheme = useCallback(async (nextTheme: ThemeName) => {
@@ -47,10 +68,7 @@ export function MemoixProvider({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <ThemeContext.Provider value={themeContext}>
-        <SafeAreaView style={[styles.centered, { backgroundColor: themeContext.theme.background }]}>
-          <ActivityIndicator color={themeContext.theme.green} />
-          <AppText accent>OPENING LOCAL DATABASE…</AppText>
-        </SafeAreaView>
+        <StartupSplash />
       </ThemeContext.Provider>
     );
   }

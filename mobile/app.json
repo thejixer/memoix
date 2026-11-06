@@ -6,6 +6,11 @@
     "scheme": "memoix",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070b08"
+    },
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -13,7 +18,7 @@
     "android": {
       "package": "com.memoix.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#000000",
+        "backgroundColor": "#070b08",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
