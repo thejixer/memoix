@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
   ExpenseAnalytics,
@@ -11,7 +11,6 @@ import { AppText, Card, DateFilterField, Page } from '../components/ui';
 import { CompositeBarChart, DailyLineChart } from '../components/ExpenseCharts';
 
 const EXPENSES_BATCH_SIZE = 40;
-const SCROLL_LOAD_THRESHOLD = 240;
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -39,12 +38,9 @@ export default function ExpenseAnalyticsScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState(emptyAnalytics);
   const [selectedDay, setSelectedDay] = useState<Memory[]>([]);
-  const [selectedDayTotal, setSelectedDayTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const loadMoreLock = useRef(false);
-  const requestGeneration = useRef(0);
   const currentFocusDate = selectedDate ?? analytics.days[analytics.days.length - 1]?.date ?? null;
   const focusDay = currentFocusDate ? new Date(`${currentFocusDate}T12:00:00`) : null;
   const focusDayTotal =
@@ -53,13 +49,10 @@ export default function ExpenseAnalyticsScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      const generation = ++requestGeneration.current;
       setLoading(true);
       setLoadingMore(false);
       setFailure(null);
       setSelectedDay([]);
-      setSelectedDayTotal(0);
-      loadMoreLock.current = false;
       const fallback = getDefaultDateRange();
       getExpenseAnalytics(since, until, fallback.since, fallback.until)
         .then(async nextAnalytics => {
@@ -68,13 +61,21 @@ export default function ExpenseAnalyticsScreen() {
           const date = selectedDate ?? nextAnalytics.days[nextAnalytics.days.length - 1]?.date;
           if (!date) {
             setSelectedDay([]);
-            setSelectedDayTotal(0);
             return;
           }
-          const page = await getExpensesOnDate(date, EXPENSES_BATCH_SIZE, 0);
-          if (!active) return;
-          setSelectedDay(page.items);
-          setSelectedDayTotal(page.total);
+          let offset = 0;
+          let total = 0;
+          do {
+            const page = await getExpensesOnDate(date, EXPENSES_BATCH_SIZE, offset);
+            if (!active) return;
+            total = page.total;
+            if (!page.items.length) break;
+            setSelectedDay(current =>
+              offset === 0 ? page.items : [...current, ...page.items],
+            );
+            offset += page.items.length;
+            setLoadingMore(offset < total);
+          } while (offset < total);
         })
         .catch(error => {
           if (active) {
@@ -82,14 +83,13 @@ export default function ExpenseAnalyticsScreen() {
           }
         })
         .finally(() => {
-          if (active) setLoading(false);
+          if (active) {
+            setLoading(false);
+            setLoadingMore(false);
+          }
         });
       return () => {
         active = false;
-        if (requestGeneration.current === generation) {
-          requestGeneration.current += 1;
-        }
-        loadMoreLock.current = false;
       };
     }, [selectedDate, since, until]),
   );
@@ -135,44 +135,8 @@ export default function ExpenseAnalyticsScreen() {
     null,
   );
 
-  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (
-      !focusDate ||
-      loading ||
-      loadingMore ||
-      loadMoreLock.current ||
-      selectedDay.length >= selectedDayTotal
-    ) return;
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    if (
-      contentOffset.y + layoutMeasurement.height >=
-      contentSize.height - SCROLL_LOAD_THRESHOLD
-    ) {
-      loadMoreLock.current = true;
-      setLoadingMore(true);
-      const generation = requestGeneration.current;
-      getExpensesOnDate(focusDate, EXPENSES_BATCH_SIZE, selectedDay.length)
-        .then(page => {
-          if (requestGeneration.current !== generation) return;
-          setSelectedDay(current => [...current, ...page.items]);
-          setSelectedDayTotal(page.total);
-        })
-        .catch(error => {
-          if (requestGeneration.current === generation) {
-            setFailure(error instanceof Error ? error.message : String(error));
-          }
-        })
-        .finally(() => {
-          if (requestGeneration.current === generation) {
-            loadMoreLock.current = false;
-            setLoadingMore(false);
-          }
-        });
-    }
-  };
-
   return (
-    <Page onScroll={onScroll}>
+    <Page>
       <AppText bold accent style={styles.title}>EXPENSE ANALYTICS</AppText>
       <View style={styles.dates}>
         <View style={styles.dateSlot}>
@@ -253,7 +217,7 @@ export default function ExpenseAnalyticsScreen() {
             ];
             return (
               <View key={expense.id} style={styles.expenseRow}>
-                <AppText>{entities.join(' ') || 'No tags or mentions'}</AppText>
+                <AppText>{entities.join(' ') || '—'}</AppText>
               </View>
             );
           })
