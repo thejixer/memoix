@@ -80,7 +80,7 @@ export default function TabLayout() {
         options={{
           title: 'Create',
           tabBarShowLabel: false,
-          tabBarButton: ({ onLongPress, testID }) => (
+          tabBarButton: ({ onLongPress, style, testID }) => (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Create a memo or expense"
@@ -88,6 +88,7 @@ export default function TabLayout() {
               onLongPress={onLongPress}
               testID={testID}
               style={({ pressed }) => [
+                style,
                 styles.createButtonContainer,
                 pressed && styles.createButtonPressed,
               ]}
@@ -148,8 +149,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   createButtonContainer: {
-    top: 0,
-    marginBottom: -10,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
