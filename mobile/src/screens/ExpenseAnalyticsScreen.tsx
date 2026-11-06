@@ -46,6 +46,9 @@ export default function ExpenseAnalyticsScreen() {
   const loadMoreLock = useRef(false);
   const requestGeneration = useRef(0);
   const currentFocusDate = selectedDate ?? analytics.days[analytics.days.length - 1]?.date ?? null;
+  const focusDay = currentFocusDate ? new Date(`${currentFocusDate}T12:00:00`) : null;
+  const focusDayTotal =
+    analytics.days.find(day => day.date === currentFocusDate)?.total ?? 0;
 
   useFocusEffect(
     useCallback(() => {
@@ -222,8 +225,23 @@ export default function ExpenseAnalyticsScreen() {
       />
       <Card>
         <AppText bold accent>
-          {focusDate ? `EXPENSES · ${focusDate}` : 'EXPENSES · SELECT A DAY'}
+          {focusDay
+            ? `EXPENSES · ${focusDay.toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}`
+            : 'EXPENSES · SELECT A DAY'}
         </AppText>
+        {focusDay ? (
+          <View style={styles.dayTotal}>
+            <AppText muted style={styles.dayTotalLabel}>DAY TOTAL</AppText>
+            <AppText bold accent>
+              {focusDayTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </AppText>
+          </View>
+        ) : null}
         {loading && !selectedDay.length ? (
           <AppText muted>Loading expenses…</AppText>
         ) : selectedDay.length ? (
@@ -258,6 +276,13 @@ const styles = StyleSheet.create({
   stat: { width: '48%', minHeight: 76, justifyContent: 'space-between' },
   statLabel: { fontSize: 10 },
   statValue: { fontSize: 16 },
+  dayTotal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  dayTotalLabel: { fontSize: 11 },
   expenseRow: {
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
