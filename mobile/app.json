@@ -13,7 +13,7 @@
     "android": {
       "package": "com.memoix.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#050805",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },

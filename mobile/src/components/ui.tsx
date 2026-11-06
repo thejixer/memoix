@@ -279,11 +279,17 @@ export function DateFilterField({
   value,
   onChange,
   compact = false,
+  clearInside = false,
+  showYear = false,
+  small = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   compact?: boolean;
+  clearInside?: boolean;
+  showYear?: boolean;
+  small?: boolean;
 }) {
   const { theme } = useTheme();
   const [open, setOpen] = useState(false);
@@ -299,54 +305,72 @@ export function DateFilterField({
   };
 
   return (
-    <View style={[styles.field, compact && styles.compactDateField]}>
+    <View style={[styles.field, compact && styles.compactDateField, small && styles.smallCompactDateField]}>
       <View style={[styles.dateFilterRow, compact && styles.compactDateRow]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${label} date`}
-          style={[styles.input, inputThemeStyle(theme), compact && styles.compactDateInput]}
-          onPress={() => setOpen(true)}
-          onLongPress={() => value && onChange('')}
-        >
-          {compact ? (
-            <View style={styles.compactDateContent}>
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
-                  stroke={theme.green}
-                  strokeWidth={1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <View style={styles.compactDateLabels}>
-                <AppText muted numberOfLines={1} style={styles.compactDateLabel}>
-                  {label}
-                </AppText>
-                <AppText numberOfLines={1} style={styles.compactDateText}>
-                  {value
-                    ? new Date(`${value}T12:00:00`).toLocaleDateString([], {
-                        month: 'numeric',
-                        day: 'numeric',
-                      })
-                    : '—'}
-                </AppText>
+        <View style={[compact && clearInside && styles.compactDateButtonWrap]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} date`}
+            style={[
+              styles.input,
+              inputThemeStyle(theme),
+              compact && styles.compactDateInput,
+              small && styles.smallCompactDateInput,
+              compact && clearInside && styles.compactDateInputWithClear,
+            ]}
+            onPress={() => setOpen(true)}
+            onLongPress={() => value && onChange('')}
+          >
+            {compact ? (
+              <View style={styles.compactDateContent}>
+                <Svg width={small ? 14 : 16} height={small ? 14 : 16} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
+                    stroke={theme.green}
+                    strokeWidth={1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <View style={styles.compactDateLabels}>
+                  <AppText muted numberOfLines={1} style={[styles.compactDateLabel, small && styles.smallCompactDateLabel]}>
+                    {label}
+                  </AppText>
+                  <AppText numberOfLines={1} style={[styles.compactDateText, small && styles.smallCompactDateText]}>
+                    {value
+                      ? new Date(`${value}T12:00:00`).toLocaleDateString([], {
+                          month: 'numeric',
+                          day: 'numeric',
+                          ...(showYear ? { year: 'numeric' as const } : {}),
+                        })
+                      : '—'}
+                  </AppText>
+                </View>
               </View>
-            </View>
-          ) : (
-            <AppText numberOfLines={1}>{label}: {value || 'N/A'}</AppText>
-          )}
-        </Pressable>
-        {value ? (
+            ) : (
+              <AppText numberOfLines={1}>{label}: {value || 'N/A'}</AppText>
+            )}
+          </Pressable>
+          {compact && clearInside && value ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Clear ${label} date`}
+              onPress={() => onChange('')}
+              style={styles.compactDateClearInside}
+              hitSlop={2}
+            >
+              <AppText accent style={styles.compactDateClearIcon}>×</AppText>
+            </Pressable>
+          ) : null}
+        </View>
+        {!(compact && clearInside) && value ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Clear ${label} date`}
             onPress={() => onChange('')}
             style={compact ? styles.clearDateCompact : styles.clearDate}
           >
-            <AppText accent style={compact && styles.compactDateText}>
-              ×
-            </AppText>
+            <AppText accent style={compact && styles.compactDateText}>×</AppText>
           </Pressable>
         ) : null}
       </View>
@@ -433,6 +457,7 @@ const styles = StyleSheet.create({
   clearDateCompact: { paddingHorizontal: 4, paddingVertical: 4 },
   compactDateField: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   compactDateRow: { flex: 1, minWidth: 0 },
+  compactDateButtonWrap: { flex: 1, minWidth: 0, position: 'relative' },
   compactDateInput: {
     flex: 1,
     minWidth: 0,
@@ -442,10 +467,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  compactDateInputWithClear: { paddingRight: 34 },
+  compactDateClearInside: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 34,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactDateClearIcon: { fontSize: 20, lineHeight: 24 },
+  smallCompactDateField: { gap: 0 },
+  smallCompactDateInput: { minHeight: 38, paddingHorizontal: 4, paddingVertical: 4 },
   compactDateContent: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 },
   compactDateLabels: { flex: 1, minWidth: 0 },
   compactDateLabel: { fontSize: 8, lineHeight: 10 },
   compactDateText: { fontSize: 10, lineHeight: 13 },
+  smallCompactDateLabel: { fontSize: 7, lineHeight: 9 },
+  smallCompactDateText: { fontSize: 9, lineHeight: 12 },
   fieldLabel: { fontSize: 11 },
   compactExpenseDateField: { gap: 6 },
   compactExpenseDateInput: {

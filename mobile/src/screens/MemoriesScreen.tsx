@@ -240,12 +240,18 @@ export default function MemoriesScreen({
 							value={since}
 							onChange={setSince}
 							compact
+							small
+							clearInside
+							showYear
 						/>
 						<DateFilterField
 							label="UNTIL"
 							value={until}
 							onChange={setUntil}
 							compact
+							small
+							clearInside
+							showYear
 						/>
 					</View>
 				</View>
@@ -478,7 +484,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		gap: 8,
+		gap: 12,
 	},
 	title: { fontSize: 19, letterSpacing: 1.5 },
 	hint: { fontSize: 10 },
@@ -488,8 +494,9 @@ const styles = StyleSheet.create({
 	dateRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 4,
+		gap: 6,
 		flexShrink: 1,
+		marginLeft: 4,
 	},
 	topEntities: { gap: 2, paddingHorizontal: 2 },
 	birthdayCard: {
