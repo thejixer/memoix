@@ -1,3 +1,4 @@
+// domain.ts
 export type MemoryType = 'memo' | 'expense';
 
 export type Memory = {
