@@ -16,7 +16,6 @@ export default function TopEntities({ tags, mentions, onSelect }: Props) {
   return (
     <View style={styles.section}>
       <EntityRow
-        title="TOP TAGS"
         emptyLabel="NO AVAILABLE TAGS"
         entities={tags}
         prefix="#"
@@ -25,7 +24,6 @@ export default function TopEntities({ tags, mentions, onSelect }: Props) {
         onSelect={onSelect}
       />
       <EntityRow
-        title="TOP MENTIONS"
         emptyLabel="NO AVAILABLE MENTIONS"
         entities={mentions}
         prefix="@"
@@ -39,7 +37,6 @@ export default function TopEntities({ tags, mentions, onSelect }: Props) {
 }
 
 function EntityRow({
-  title,
   emptyLabel,
   entities,
   prefix,
@@ -48,7 +45,6 @@ function EntityRow({
   surface,
   onSelect,
 }: {
-  title: string;
   emptyLabel: string;
   entities: EntityUsage[];
   prefix: string;
@@ -59,7 +55,6 @@ function EntityRow({
 }) {
   return (
     <View style={styles.rowGroup}>
-      <AppText muted bold style={styles.rowTitle}>{title}</AppText>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.entityRow}>
           {entities.length ? entities.map((entity, index) => {
