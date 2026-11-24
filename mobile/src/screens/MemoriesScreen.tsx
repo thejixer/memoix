@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -8,7 +8,7 @@ import {
 	GapStats,
 	EntityUsage,
 } from '../domain';
-import { entityColors, useTheme } from '../theme';
+import { useTheme } from '../theme';
 import {
 	getBirthdayPeople,
 	getEntitySuggestions,
@@ -19,6 +19,7 @@ import {
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import EntityInput from '../components/EntityInput';
 import MemoryCard from '../components/MemoryCard';
+import TopEntities from '../components/TopEntities';
 import { AppText, Button, Card, DateFilterField, Page } from '../components/ui';
 
 type Props = {
@@ -277,69 +278,11 @@ export default function MemoriesScreen({
 						style={styles.clearButton}
 					/>
 				</View>
-				<View style={styles.topEntities}>
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={styles.entityRow}
-					>
-						{topTags.length ? (
-							topTags.map((tag, index) => (
-								<Pressable
-									key={tag.name}
-									onPress={() => addEntityFilter(`#${tag.name}`)}
-								>
-									<AppText
-										numberOfLines={1}
-										style={[
-											styles.entityText,
-											{ color: entityColors[index % entityColors.length] },
-										]}
-									>
-										{tag.name} ({tag.usageCount})
-									</AppText>
-								</Pressable>
-							))
-						) : (
-							<AppText numberOfLines={1} accent style={styles.emptyEntityText}>
-								NO AVAILABLE TAGS
-							</AppText>
-						)}
-					</ScrollView>
-					<ScrollView
-						horizontal
-						showsHorizontalScrollIndicator={false}
-						contentContainerStyle={styles.entityRow}
-					>
-						{topMentions.length ? (
-							topMentions.map((mention, index) => (
-								<Pressable
-									key={mention.name}
-									onPress={() => addEntityFilter(`@${mention.name}`)}
-								>
-									<AppText
-										numberOfLines={1}
-										style={[
-											styles.entityText,
-											{
-												color:
-													entityColors[
-														(index + topTags.length) % entityColors.length
-													],
-											},
-										]}
-									>
-										@{mention.name} ({mention.usageCount})
-									</AppText>
-								</Pressable>
-							))
-						) : (
-							<AppText numberOfLines={1} accent style={styles.emptyEntityText}>
-								NO AVAILABLE MENTIONS
-							</AppText>
-						)}
-					</ScrollView>
-				</View>
+				<TopEntities
+					tags={topTags}
+					mentions={topMentions}
+					onSelect={addEntityFilter}
+				/>
 
 				{/* Enhanced Birthday Alert Announcement */}
 				{upcomingBirthdays.length > 0 && (
@@ -501,7 +444,6 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end',
 	},
 	dateFilters: { width: '85%', flexDirection: 'row', alignItems: 'center', gap: 6 },
-	topEntities: { gap: 2, paddingHorizontal: 2 },
 	birthdayCard: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -518,14 +460,6 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		lineHeight: 18,
 	},
-	entityRow: {
-		flexDirection: 'row',
-		flexWrap: 'nowrap',
-		alignItems: 'center',
-		gap: 8,
-	},
-	entityText: { fontSize: 10, lineHeight: 18 },
-	emptyEntityText: { fontSize: 9 },
 	tabs: { flexDirection: 'row', borderBottomWidth: 1 },
 	heatmapHeader: {
 		flexDirection: 'row',

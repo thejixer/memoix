@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import {
   deleteTag,
@@ -9,8 +9,9 @@ import {
   saveTag,
 } from '../database';
 import { Memory, Tag } from '../domain';
-import { entityColors, useTheme } from '../theme';
+import { useTheme } from '../theme';
 import MemoryCard from '../components/MemoryCard';
+import TopEntities from '../components/TopEntities';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 
 const MEMORY_BATCH_SIZE = 40;
@@ -157,53 +158,7 @@ export default function TagEditorScreen({
           </AppText>
         </View>
       </View>
-      {tag ? (
-        <>
-          <View style={styles.topEntities}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.entityRow}
-            >
-              {topTags.length ? (
-                topTags.map((topTag, index) => (
-                  <AppText
-                    key={topTag.name}
-                    numberOfLines={1}
-                    style={[styles.entityText, { color: entityColors[index % entityColors.length] }]}
-                  >
-                    {topTag.name} ({topTag.usageCount})
-                  </AppText>
-                ))
-              ) : (
-                <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE TAGS</AppText>
-              )}
-            </ScrollView>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.entityRow}
-            >
-              {topMentions.length ? (
-                topMentions.map((mention, index) => (
-                  <AppText
-                    key={mention.name}
-                    numberOfLines={1}
-                    style={[
-                      styles.entityText,
-                      { color: entityColors[(index + topTags.length) % entityColors.length] },
-                    ]}
-                  >
-                    @{mention.name} ({mention.usageCount})
-                  </AppText>
-                ))
-              ) : (
-                <AppText numberOfLines={1} accent style={styles.emptyEntityText}>NO AVAILABLE MENTIONS</AppText>
-              )}
-            </ScrollView>
-          </View>
-        </>
-      ) : null}
+      {tag ? <TopEntities tags={topTags} mentions={topMentions} /> : null}
       {tag ? (
         <View style={[styles.tabs, { borderBottomColor: theme.border }]}>
           {(['memories', 'edit'] as const).map(item => (
@@ -269,10 +224,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tagGlyph: { fontSize: 32 },
-  topEntities: { gap: 2, paddingHorizontal: 2 },
-  entityRow: { flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 8 },
-  entityText: { fontSize: 10, lineHeight: 18 },
-  emptyEntityText: { fontSize: 9 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   form: { gap: 14 },

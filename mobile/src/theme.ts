@@ -83,13 +83,29 @@ export function isThemeName(value: string | null): value is ThemeName {
 
 export const font = 'Comic Sans MS';
 
-export const entityColors = [
-  '#FF5733', '#33FF57', '#3357FF', '#FF33A1',
-  '#A133FF', '#33FFF5', '#FF8C33', '#57FF33',
-  '#5733FF', '#FF3333', '#33A1FF', '#A1FF33',
-  '#FFD700', '#FF4500', '#8A2BE2', '#00CED1',
-  '#DC143C', '#ADFF2F', '#20B2AA', '#FF69B4',
-  '#FF1493', '#7FFF00', '#D2691E', '#4B0082',
-  '#8B0000', '#556B2F', '#2E8B57', '#FF6347',
-  '#4682B4', '#DA70D6', '#00FA9A', '#B22222',
-] as const;
+export const entityColorsByTheme: Record<ThemeName, readonly string[]> = {
+  Dark: [
+    '#FF8A65', '#81C784', '#64B5F6', '#F06292', '#BA68C8',
+    '#4DD0E1', '#FFB74D', '#AED581', '#7986CB', '#E57373',
+    '#4FC3F7', '#DCE775', '#FFD54F', '#FF8A80', '#B39DDB',
+    '#80CBC4', '#F48FB1', '#C5E1A5', '#80DEEA', '#FFAB91',
+  ],
+  Light: [
+    '#A12A12', '#246B32', '#174D9B', '#A11D58', '#5D2A91',
+    '#006B70', '#8A4B00', '#4D6415', '#3E438C', '#A32020',
+    '#075985', '#746000', '#8A3A00', '#7A287D', '#25645B',
+    '#6B3B08', '#8B3150', '#3E621B', '#6B3F85', '#295C87',
+  ],
+  Legacy: [
+    '#FF8066', '#8CFF7A', '#70A7FF', '#FF72B6', '#D49BFF',
+    '#63FFF2', '#FFC266', '#B5FF72', '#A29BFF', '#FF7777',
+    '#68C9FF', '#F4FF70', '#FFE45C', '#FF9A66', '#C49BFF',
+    '#76E8D7', '#FF8CBC', '#B4F28A', '#78D8FF', '#FFB18C',
+  ],
+  Pink: [
+    '#9A2F18', '#28683C', '#244F99', '#A02C62', '#633C91',
+    '#176B70', '#8B4C1D', '#59651D', '#49458C', '#A33038',
+    '#17618A', '#76631A', '#91432B', '#812F72', '#2D665E',
+    '#75431F', '#903B58', '#4E681F', '#694987', '#315C83',
+  ],
+};
