@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { EntityUsage } from '../domain';
 import { entityColorsByTheme, useTheme } from '../theme';
-import { AppText, Card } from './ui';
+import { AppText } from './ui';
 
 type Props = {
   tags: EntityUsage[];
@@ -10,18 +10,18 @@ type Props = {
 };
 
 export default function TopEntities({ tags, mentions, onSelect }: Props) {
-  const { themeName } = useTheme();
+  const { theme, themeName } = useTheme();
   const colors = entityColorsByTheme[themeName];
 
   return (
-    <Card style={styles.card}>
+    <View style={styles.section}>
       <EntityRow
         title="TOP TAGS"
         emptyLabel="NO AVAILABLE TAGS"
         entities={tags}
-        prefix=""
-        tokenPrefix="#"
+        prefix="#"
         colors={colors}
+        surface={theme.surfaceRaised}
         onSelect={onSelect}
       />
       <EntityRow
@@ -31,9 +31,10 @@ export default function TopEntities({ tags, mentions, onSelect }: Props) {
         prefix="@"
         colorOffset={10}
         colors={colors}
+        surface={theme.surfaceRaised}
         onSelect={onSelect}
       />
-    </Card>
+    </View>
   );
 }
 
@@ -42,18 +43,18 @@ function EntityRow({
   emptyLabel,
   entities,
   prefix,
-  tokenPrefix,
   colorOffset = 0,
   colors,
+  surface,
   onSelect,
 }: {
   title: string;
   emptyLabel: string;
   entities: EntityUsage[];
   prefix: string;
-  tokenPrefix?: string;
   colorOffset?: number;
   colors: readonly string[];
+  surface: string;
   onSelect?: (query: string) => void;
 }) {
   return (
@@ -62,19 +63,29 @@ function EntityRow({
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.entityRow}>
           {entities.length ? entities.map((entity, index) => {
-            const content = `${prefix}${entity.name} (${entity.usageCount})`;
+            const color = colors[colorOffset + index];
+            const chipStyle = [
+              styles.entityChip,
+              { backgroundColor: surface, borderColor: `${color}80` },
+            ];
             const text = (
-              <AppText numberOfLines={1} style={[styles.entityText, { color: colors[colorOffset + index] }]}>
-                {content}
+              <AppText numberOfLines={1} style={[styles.entityText, { color }]}>
+                {prefix}{entity.name}
+                <AppText muted style={styles.usageCount}> · {entity.usageCount}</AppText>
               </AppText>
             );
 
             return onSelect ? (
-              <Pressable key={entity.name} onPress={() => onSelect(`${tokenPrefix ?? prefix}${entity.name}`)}>
+              <Pressable
+                key={entity.name}
+                accessibilityRole="button"
+                onPress={() => onSelect(`${prefix}${entity.name}`)}
+                style={chipStyle}
+              >
                 {text}
               </Pressable>
             ) : (
-              <View key={entity.name}>{text}</View>
+              <View key={entity.name} style={chipStyle}>{text}</View>
             );
           }) : (
             <AppText numberOfLines={1} accent style={styles.emptyEntityText}>{emptyLabel}</AppText>
@@ -86,10 +97,17 @@ function EntityRow({
 }
 
 const styles = StyleSheet.create({
-  card: { gap: 8 },
+  section: { gap: 8 },
   rowGroup: { gap: 2 },
   rowTitle: { fontSize: 8, letterSpacing: 0.8 },
   entityRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  entityText: { fontSize: 10, lineHeight: 18 },
+  entityChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  entityText: { fontSize: 10, lineHeight: 16 },
+  usageCount: { fontSize: 9 },
   emptyEntityText: { fontSize: 9 },
 });
