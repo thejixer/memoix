@@ -124,7 +124,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="backup"
+        name="settings"
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, focused }) => (

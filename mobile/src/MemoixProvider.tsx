@@ -12,6 +12,7 @@ import {
 import { getAppSetting, initializeDatabase, setAppSetting } from './database';
 import { AppText } from './components/ui';
 import StartupSplash from './components/StartupSplash';
+import { AppLockProvider } from './AppLockProvider';
 import { font, isThemeName, ThemeContext, ThemeName, themes } from './theme';
 
 const MINIMUM_SPLASH_DURATION_MS = 1000;
@@ -87,7 +88,7 @@ export function MemoixProvider({ children }: { children: ReactNode }) {
 
   return (
     <ThemeContext.Provider value={themeContext}>
-      {children}
+      <AppLockProvider>{children}</AppLockProvider>
     </ThemeContext.Provider>
   );
 }

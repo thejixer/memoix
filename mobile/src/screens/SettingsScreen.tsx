@@ -5,6 +5,7 @@ import {
 	Platform,
 	Pressable,
 	StyleSheet,
+	Switch,
 	View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -16,13 +17,21 @@ import {
 } from '../database';
 import { AppText, Button, Card, Page } from '../components/ui';
 import { ThemeName, themeNames, themes, useTheme } from '../theme';
+import { useAppLock } from '../AppLockProvider';
 
-export default function BackupScreen() {
+export default function SettingsScreen() {
 	const [busy, setBusy] = useState(false);
 	const [expandedSection, setExpandedSection] = useState<
-		'appearance' | 'backup' | 'about' | null
+		'appearance' | 'security' | 'backup' | 'about' | null
 	>('appearance');
 	const { theme, themeName, setTheme } = useTheme();
+	const {
+		enabled: appLockEnabled,
+		deviceAuthenticationAvailable,
+		busy: appLockBusy,
+		enable: enableAppLock,
+		disable: disableAppLock,
+	} = useAppLock();
 
 	const chooseTheme = async (nextTheme: ThemeName) => {
 		try {
@@ -101,7 +110,19 @@ export default function BackupScreen() {
 		}
 	};
 
-	const toggleSection = (section: 'appearance' | 'backup' | 'about') => {
+	const toggleAppLock = async (nextEnabled: boolean) => {
+		try {
+			if (nextEnabled) await enableAppLock();
+			else await disableAppLock();
+		} catch (error) {
+			Alert.alert(
+				nextEnabled ? 'Could not enable app lock' : 'Could not disable app lock',
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+	};
+
+	const toggleSection = (section: 'appearance' | 'security' | 'backup' | 'about') => {
 		setExpandedSection(current => (current === section ? null : section));
 	};
 
@@ -161,6 +182,38 @@ export default function BackupScreen() {
 								);
 							})}
 						</View>
+					</View>
+				) : null}
+			</Card>
+			<Card>
+				<AccordionHeader
+					title="SECURITY"
+					expanded={expandedSection === 'security'}
+					onPress={() => toggleSection('security')}
+				/>
+				{expandedSection === 'security' ? (
+					<View style={styles.sectionContent}>
+						<View style={styles.securityRow}>
+							<View style={styles.securityCopy}>
+								<AppText bold>APP LOCK</AppText>
+								<AppText muted>
+									Require your device biometrics when you return to Memoix. Your device passcode may be used as a fallback.
+								</AppText>
+							</View>
+							<Switch
+								accessibilityLabel="Require authentication to open Memoix"
+								value={appLockEnabled}
+								onValueChange={value => void toggleAppLock(value)}
+								disabled={appLockBusy || (!appLockEnabled && !deviceAuthenticationAvailable)}
+								trackColor={{ false: theme.border, true: theme.green }}
+								thumbColor={theme.surface}
+							/>
+						</View>
+						{!deviceAuthenticationAvailable && !appLockEnabled ? (
+							<AppText muted style={styles.securityHint}>
+								Set up Face ID, fingerprint, or another biometric in your device settings to enable app lock.
+							</AppText>
+						) : null}
 					</View>
 				) : null}
 			</Card>
@@ -298,6 +351,9 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 	},
 	sectionContent: { gap: 12, paddingTop: 12 },
+	securityRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+	securityCopy: { flex: 1, gap: 4 },
+	securityHint: { fontSize: 11 },
 	contactRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
 	emailLink: { textDecorationLine: 'underline' },
 	themeOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
