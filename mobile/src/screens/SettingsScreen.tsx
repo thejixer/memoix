@@ -227,8 +227,8 @@ export default function SettingsScreen() {
 					<View style={styles.sectionContent}>
 						<AppText bold>OFFLINE DATA</AppText>
 						<AppText muted>
-							Your memories, tags, people, and avatar images stay on this device
-							in a local SQLite database. No account or network connection is
+							Your memories, tags, and people stay in a local SQLite database;
+							avatar thumbnails stay in private app storage. No account or network connection is
 							required.
 						</AppText>
 						<AppText bold accent>
@@ -237,7 +237,7 @@ export default function SettingsScreen() {
 						<AppText muted>
 							{Platform.OS === 'android'
 								? 'Backups are saved to your selected folder. Choose a folder the first time, or change it later.'
-								: 'Export a portable .db backup using the share sheet.'}{' '}
+								: 'Export a portable .zip backup using the share sheet.'}{' '}
 							Store a copy somewhere safe; app data can be lost if the app is
 							uninstalled or the device is lost. Backup files are not encrypted,
 							so save them somewhere private.
@@ -247,8 +247,8 @@ export default function SettingsScreen() {
 								busy
 									? 'PLEASE WAIT…'
 									: Platform.OS === 'android'
-										? 'SAVE SQLITE BACKUP'
-										: 'SHARE SQLITE BACKUP'
+										? 'SAVE ZIP BACKUP'
+										: 'SHARE ZIP BACKUP'
 							}
 							onPress={exportFile}
 							disabled={busy}

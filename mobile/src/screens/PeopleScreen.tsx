@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useFocusEffect } from 'expo-router';
-import { PersonListItem, TagListItem, getPeopleListPage, getTagsListPage } from '../database';
+import { PersonListItem, TagListItem, getAvatarUri, getPeopleListPage, getTagsListPage } from '../database';
 import { Person, Tag } from '../domain';
 import { AppText, Button, Card, Page, TextField } from '../components/ui';
 import { useTheme } from '../theme';
@@ -174,11 +174,9 @@ export default function PeopleScreen({
 						people.map(({ person, count }) => (
 							<Pressable key={person.id} onPress={() => onOpenPerson(person)}>
 								<Card style={styles.personCard}>
-									{person.avatarBase64 ? (
+									{person.avatarPath ? (
 										<Image
-											source={{
-												uri: `data:${person.avatarMimeType ?? 'image/jpeg'};base64,${person.avatarBase64}`,
-											}}
+											source={{ uri: getAvatarUri(person.avatarPath) }}
 											style={styles.listAvatar}
 										/>
 									) : (

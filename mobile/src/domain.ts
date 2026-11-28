@@ -19,8 +19,7 @@ export type Person = {
   description: string;
   birthdate: string | null;
   phoneNumber: string;
-  avatarBase64: string | null;
-  avatarMimeType: string | null;
+  avatarPath: string | null;
 };
 
 export type UpcomingBirthday = {

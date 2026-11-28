@@ -4,6 +4,7 @@ import { Directory, File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
+import { strToU8, unzipSync, zipSync } from 'fflate';
 import { Alert, Platform } from 'react-native';
 import {
   Entities,
@@ -20,9 +21,39 @@ import {
 } from './domain';
 
 const DATABASE_NAME = 'memoix.db';
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const BACKUP_DIRECTORY_FILE = 'memoix-backup-directory.txt';
+const AVATAR_DIRECTORY = 'avatars';
 let database: SQLite.SQLiteDatabase | null = null;
+
+export function getAvatarUri(path: string): string {
+  if (!FileSystem.documentDirectory) throw new Error('The app storage directory is unavailable.');
+  return `${FileSystem.documentDirectory}${path}`;
+}
+
+function relativeAvatarPath(uri: string): string | null {
+  if (!FileSystem.documentDirectory || !uri.startsWith(FileSystem.documentDirectory)) return null;
+  return uri.slice(FileSystem.documentDirectory.length);
+}
+
+async function storeAvatar(uri: string): Promise<string> {
+  const existingPath = relativeAvatarPath(uri);
+  if (existingPath?.startsWith(`${AVATAR_DIRECTORY}/`)) return existingPath;
+  if (!FileSystem.documentDirectory) throw new Error('The app storage directory is unavailable.');
+  const directory = `${FileSystem.documentDirectory}${AVATAR_DIRECTORY}`;
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  const path = `${AVATAR_DIRECTORY}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  await FileSystem.copyAsync({ from: uri, to: getAvatarUri(path) });
+  return path;
+}
+
+async function removeAvatar(path: string | null): Promise<void> {
+  if (!path) return;
+  const uri = getAvatarUri(path);
+  if ((await FileSystem.getInfoAsync(uri)).exists) {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  }
+}
 
 export type MemoryPage = { items: Memory[]; total: number };
 export type PersonListItem = { person: Person; count: number };
@@ -82,6 +113,7 @@ export async function selectBackupDirectory(): Promise<boolean> {
 async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!database) {
     database = await SQLite.openDatabaseAsync(DATABASE_NAME);
+    const version = await database.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
     await database.execAsync(`
       PRAGMA foreign_keys = ON;
       PRAGMA journal_mode = DELETE;
@@ -101,8 +133,7 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         description TEXT NOT NULL DEFAULT '',
         birthdate TEXT,
         phone_number TEXT NOT NULL DEFAULT '',
-        avatar_base64 TEXT,
-        avatar_mime_type TEXT
+        avatar_path TEXT
       );
       CREATE TABLE IF NOT EXISTS tags (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,8 +167,20 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
       CREATE INDEX IF NOT EXISTS memory_tags_tag_idx ON memory_tags(tag_id, memory_id);
       CREATE INDEX IF NOT EXISTS memory_people_person_idx ON memory_people(person_id, memory_id);
       CREATE INDEX IF NOT EXISTS memory_places_place_idx ON memory_places(place_id, memory_id);
-      PRAGMA user_version = ${DATABASE_VERSION};
     `);
+    const columns = await database.getAllAsync<{ name: string }>('PRAGMA table_info(people)');
+    const columnNames = new Set(columns.map(column => column.name));
+    if (!columnNames.has('avatar_path')) {
+      await database.execAsync('ALTER TABLE people ADD COLUMN avatar_path TEXT');
+    }
+    if (version?.user_version && version.user_version < DATABASE_VERSION) {
+      const latestColumns = new Set(
+        (await database.getAllAsync<{ name: string }>('PRAGMA table_info(people)')).map(column => column.name),
+      );
+      if (latestColumns.has('avatar_base64')) await database.execAsync('ALTER TABLE people DROP COLUMN avatar_base64');
+      if (latestColumns.has('avatar_mime_type')) await database.execAsync('ALTER TABLE people DROP COLUMN avatar_mime_type');
+    }
+    await database.execAsync(`PRAGMA user_version = ${DATABASE_VERSION};`);
   }
   return database;
 }
@@ -261,12 +304,11 @@ export async function getPeopleListPage(
       description: string;
       birthdate: string | null;
       phone_number: string;
-      avatar_base64: string | null;
-      avatar_mime_type: string | null;
+      avatar_path: string | null;
       memory_count: number;
     }>(
       `SELECT p.id, p.full_name, p.mention_key, p.description, p.birthdate,
-        p.phone_number, p.avatar_base64, p.avatar_mime_type,
+        p.phone_number, p.avatar_path,
         COUNT(DISTINCT mp.memory_id) AS memory_count
        FROM people p LEFT JOIN memory_people mp ON mp.person_id = p.id
        WHERE ${predicate}
@@ -287,8 +329,7 @@ export async function getPeopleListPage(
         description: row.description,
         birthdate: row.birthdate,
         phoneNumber: row.phone_number,
-        avatarBase64: row.avatar_base64,
-        avatarMimeType: row.avatar_mime_type,
+        avatarPath: row.avatar_path,
       },
       count: row.memory_count,
     })),
@@ -663,8 +704,7 @@ export async function getPersonById(id: number): Promise<Person | null> {
     description: string;
     birthdate: string | null;
     phone_number: string;
-    avatar_base64: string | null;
-    avatar_mime_type: string | null;
+    avatar_path: string | null;
   }>('SELECT * FROM people WHERE id = ?', id);
   const row = rows[0];
   return row ? {
@@ -674,8 +714,7 @@ export async function getPersonById(id: number): Promise<Person | null> {
     description: row.description,
     birthdate: row.birthdate,
     phoneNumber: row.phone_number,
-    avatarBase64: row.avatar_base64,
-    avatarMimeType: row.avatar_mime_type,
+    avatarPath: row.avatar_path,
   } : null;
 }
 
@@ -995,7 +1034,7 @@ export async function deleteMemory(id: number): Promise<void> {
 }
 
 export async function savePerson(
-  input: Omit<Person, 'id'> & { id?: number },
+  input: Omit<Person, 'id' | 'avatarPath'> & { id?: number; avatarUri: string | null },
 ): Promise<void> {
   const db = await getDatabase();
   const key = input.mentionKey.trim().replace(/^@/, '').toLocaleLowerCase();
@@ -1003,7 +1042,17 @@ export async function savePerson(
     throw new Error('Enter a handle using letters, numbers, and underscores.');
   }
 
-  await db.withTransactionAsync(async () => {
+  const previousPath = input.id
+    ? (
+        await db.getFirstAsync<{ avatar_path: string | null }>(
+          'SELECT avatar_path FROM people WHERE id = ?',
+          input.id,
+        )
+      )?.avatar_path ?? null
+    : null;
+  const newPath = input.avatarUri ? await storeAvatar(input.avatarUri) : null;
+  try {
+    await db.withTransactionAsync(async () => {
     if (input.id) {
       const previous = await db.getFirstAsync<{ mention_key: string }>(
         'SELECT mention_key FROM people WHERE id = ?',
@@ -1012,15 +1061,14 @@ export async function savePerson(
       if (!previous) throw new Error('Person no longer exists.');
       await db.runAsync(
         `UPDATE people SET full_name = ?, mention_key = ?, description = ?,
-         birthdate = ?, phone_number = ?, avatar_base64 = ?, avatar_mime_type = ?
+         birthdate = ?, phone_number = ?, avatar_path = ?
          WHERE id = ?`,
         input.fullName.trim(),
         key,
         input.description,
         input.birthdate,
         input.phoneNumber,
-        input.avatarBase64,
-        input.avatarMimeType,
+        newPath,
         input.id,
       );
       if (previous.mention_key !== key) {
@@ -1044,23 +1092,32 @@ export async function savePerson(
     } else {
       await db.runAsync(
         `INSERT INTO people
-         (full_name, mention_key, description, birthdate, phone_number, avatar_base64, avatar_mime_type)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (full_name, mention_key, description, birthdate, phone_number, avatar_path)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         input.fullName.trim(),
         key,
         input.description,
         input.birthdate,
         input.phoneNumber,
-        input.avatarBase64,
-        input.avatarMimeType,
+        newPath,
       );
     }
-  });
+    });
+  } catch (error) {
+    if (newPath && newPath !== previousPath) await removeAvatar(newPath);
+    throw error;
+  }
+  if (previousPath && previousPath !== newPath) await removeAvatar(previousPath);
 }
 
 export async function deletePerson(id: number): Promise<void> {
   const db = await getDatabase();
+  const row = await db.getFirstAsync<{ avatar_path: string | null }>(
+    'SELECT avatar_path FROM people WHERE id = ?',
+    id,
+  );
   await db.runAsync('DELETE FROM people WHERE id = ?', id);
+  await removeAvatar(row?.avatar_path ?? null);
 }
 
 export async function saveTag(input: { id?: number; name: string }): Promise<void> {
@@ -1124,31 +1181,38 @@ export async function exportBackup(): Promise<void> {
 
   const source = await getDatabase();
   const backupName = `memoix-backup-${Date.now()}.db`;
+  const zipName = `memoix-backup-${Date.now()}.zip`;
   const backup = await SQLite.openDatabaseAsync(backupName);
-  let closed = false;
   try {
-    await SQLite.backupDatabaseAsync({
-      sourceDatabase: source,
-      destDatabase: backup,
-    });
+    await SQLite.backupDatabaseAsync({ sourceDatabase: source, destDatabase: backup });
     await backup.closeAsync();
-    closed = true;
-    if (directoryUri) {
-      await new File(`file://${backup.databasePath}`).copy(
-        new Directory(directoryUri),
-        { overwrite: true },
-      );
-    } else {
-      if (!(await Sharing.isAvailableAsync())) {
-        throw new Error('Sharing is not available on this device.');
+    const entries: Record<string, Uint8Array> = {
+      'memoix.db': await new File(`file://${backup.databasePath}`).bytes(),
+      'manifest.json': strToU8(JSON.stringify({ format: 1 })),
+    };
+    const avatars = new Directory(FileSystem.documentDirectory!, AVATAR_DIRECTORY);
+    if (avatars.exists) {
+      for (const item of avatars.list()) {
+        if (item instanceof File && item.name.endsWith('.jpg')) {
+          entries[`${AVATAR_DIRECTORY}/${item.name}`] = await item.bytes();
+        }
       }
-      await Sharing.shareAsync(`file://${backup.databasePath}`, {
-        mimeType: 'application/vnd.sqlite3',
+    }
+    const zipFile = new File(FileSystem.cacheDirectory!, zipName);
+    zipFile.create({ overwrite: true });
+    await zipFile.write(zipSync(entries, { level: 6 }));
+    if (directoryUri) {
+      await zipFile.copy(new Directory(directoryUri), { overwrite: true });
+    } else {
+      if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing is not available on this device.');
+      await Sharing.shareAsync(zipFile.uri, {
+        mimeType: 'application/zip',
         dialogTitle: 'Export Memoix backup',
       });
     }
+    await zipFile.delete();
   } finally {
-    if (!closed) await backup.closeAsync();
+    await backup.closeAsync().catch(() => undefined);
     await SQLite.deleteDatabaseAsync(backupName);
   }
 }
@@ -1169,11 +1233,29 @@ export async function restoreBackup(): Promise<boolean> {
     .replace(/^file:\/\//, '')
     .replace(/\/+$/, '');
   const stagedPath = `${cacheDirectoryUri}${stagedName}`;
+  const selectedBytes = await new File(selection.assets[0].uri).bytes();
+  const isZip = selectedBytes[0] === 0x50 && selectedBytes[1] === 0x4b;
+  let avatarFiles: Array<{ name: string; bytes: Uint8Array }> = [];
+  let dbBytes: Uint8Array | null = null;
+  if (isZip) {
+    const archive = unzipSync(selectedBytes);
+    dbBytes = archive['memoix.db'] ?? null;
+    avatarFiles = Object.entries(archive)
+      .filter(([name]) => name.startsWith(`${AVATAR_DIRECTORY}/`) && name.endsWith('.jpg'))
+      .map(([name, bytes]) => ({ name: name.slice(AVATAR_DIRECTORY.length + 1), bytes }));
+    if (!dbBytes) throw new Error('This ZIP does not contain a Memoix database.');
+  }
   const rollbackName = `memoix-rollback-${Date.now()}.db`;
   let staged: SQLite.SQLiteDatabase | null = null;
   let rollback: SQLite.SQLiteDatabase | null = null;
   try {
-    await FileSystem.copyAsync({ from: selection.assets[0].uri, to: stagedPath });
+    if (dbBytes) {
+      const stagedFile = new File(stagedPath);
+      stagedFile.create({ overwrite: true });
+      await stagedFile.write(dbBytes);
+    } else {
+      await FileSystem.copyAsync({ from: selection.assets[0].uri, to: stagedPath });
+    }
     staged = await SQLite.openDatabaseAsync(stagedName, {}, cacheDirectory);
     const integrity = await staged.getFirstAsync<{ integrity_check: string }>(
       'PRAGMA integrity_check',
@@ -1207,6 +1289,23 @@ export async function restoreBackup(): Promise<boolean> {
     await SQLite.backupDatabaseAsync({ sourceDatabase: liveDb, destDatabase: rollback });
     try {
       await SQLite.backupDatabaseAsync({ sourceDatabase: staged, destDatabase: liveDb });
+      const columns = new Set((await liveDb.getAllAsync<{ name: string }>('PRAGMA table_info(people)')).map(column => column.name));
+      if (!columns.has('avatar_path')) await liveDb.execAsync('ALTER TABLE people ADD COLUMN avatar_path TEXT');
+      if (columns.has('avatar_base64')) await liveDb.execAsync('ALTER TABLE people DROP COLUMN avatar_base64');
+      if (columns.has('avatar_mime_type')) await liveDb.execAsync('ALTER TABLE people DROP COLUMN avatar_mime_type');
+      const avatarDirectory = new Directory(FileSystem.documentDirectory!, AVATAR_DIRECTORY);
+      avatarDirectory.create({ idempotent: true, intermediates: true });
+      const restoredAvatarNames = new Set<string>();
+      for (const entry of avatarFiles) {
+        if (entry.name.includes('..') || entry.name.includes('/')) continue;
+        restoredAvatarNames.add(entry.name);
+        const file = new File(avatarDirectory, entry.name);
+        file.create({ overwrite: true });
+        await file.write(entry.bytes);
+      }
+      for (const item of avatarDirectory.list()) {
+        if (item instanceof File && !restoredAvatarNames.has(item.name)) item.delete();
+      }
       await liveDb.execAsync(`
         CREATE TABLE IF NOT EXISTS app_settings (
           key TEXT PRIMARY KEY NOT NULL,

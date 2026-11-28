@@ -2,12 +2,14 @@ import { useCallback, useRef, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import {
 	deletePerson,
 	EntityMemoryOverview,
 	getEntityMemoryOverview,
 	getEntityMemoryPage,
 	savePerson,
+  getAvatarUri,
 } from '../database';
 import { localDateKey, Memory, Person } from '../domain';
 import { useTheme } from '../theme';
@@ -37,11 +39,8 @@ export default function PersonEditorScreen({
   const [description, setDescription] = useState(person?.description ?? '');
   const [birthdate, setBirthdate] = useState(person?.birthdate ?? '');
   const [phoneNumber, setPhoneNumber] = useState(person?.phoneNumber ?? '');
-  const [avatarBase64, setAvatarBase64] = useState<string | null>(
-    person?.avatarBase64 ?? null,
-  );
-  const [avatarMimeType, setAvatarMimeType] = useState<string | null>(
-    person?.avatarMimeType ?? null,
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    person?.avatarPath ? getAvatarUri(person.avatarPath) : null,
   );
   const [linkedMemories, setLinkedMemories] = useState<Memory[]>([]);
   const [overview, setOverview] = useState<EntityMemoryOverview>(emptyOverview);
@@ -144,12 +143,15 @@ export default function PersonEditorScreen({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.65,
-        base64: true,
+        quality: 1,
       });
       if (!result.canceled) {
-        setAvatarBase64(result.assets[0].base64 ?? null);
-        setAvatarMimeType(result.assets[0].mimeType ?? 'image/jpeg');
+        const thumbnail = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 256, height: 256 } }],
+          { compress: 0.72, format: ImageManipulator.SaveFormat.JPEG },
+        );
+        setAvatarUri(thumbnail.uri);
       }
     } catch (error) {
       Alert.alert('Could not choose avatar', error instanceof Error ? error.message : String(error));
@@ -173,8 +175,7 @@ export default function PersonEditorScreen({
         description: description.trim(),
         birthdate: birthdate.trim() || null,
         phoneNumber: phoneNumber.trim(),
-        avatarBase64,
-        avatarMimeType,
+        avatarUri,
       });
       onClose();
     } catch (error) {
@@ -213,11 +214,8 @@ export default function PersonEditorScreen({
           onPress={pickAvatar}
           style={styles.avatarButton}
         >
-          {avatarBase64 ? (
-            <Image
-              source={{ uri: `data:${avatarMimeType ?? 'image/jpeg'};base64,${avatarBase64}` }}
-              style={styles.avatar}
-            />
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View
               style={[
